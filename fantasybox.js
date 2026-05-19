@@ -25,6 +25,7 @@
     showDownloadButton: true,
     showFullscreenButton: true,
     showSlideshowButton: true,
+    hash: true,
     zoomStep: 0.25,
     minZoom: 1,
     maxZoom: 4,
@@ -44,6 +45,7 @@
       stopSlideshow: "Stop slideshow",
       loading: "Loading",
     },
+    on: {},
   };
 
   var IMAGE_EXT_RE = /\.(avif|bmp|gif|ico|jpe?g|png|svg|webp)(\?.*)?$/i;
@@ -275,6 +277,11 @@
     this.lastTapPoint = null;
     this.slideshowTimer = 0;
     this.isSlideshowRunning = false;
+    this.eventListeners = {};
+    this.hashState = {
+      enabled: !!this.options.hash,
+      previous: "",
+    };
     this.lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     this.imageCache = [];
     this.boundHandlers = {};
@@ -283,7 +290,87 @@
     if (!this.items.length) {
       throw new Error("FantasyBox requires at least one media item.");
     }
+
+    this.initOptionEvents();
   }
+
+  FantasyBoxCore.prototype.initOptionEvents = function () {
+    var self = this;
+    var optionEvents = this.options.on || {};
+
+    Object.keys(optionEvents).forEach(function (eventName) {
+      if (typeof optionEvents[eventName] === "function") {
+        self.on(eventName, optionEvents[eventName]);
+      }
+    });
+  };
+
+  FantasyBoxCore.prototype.on = function (eventName, handler) {
+    if (!eventName || typeof handler !== "function") {
+      return this;
+    }
+
+    if (!this.eventListeners[eventName]) {
+      this.eventListeners[eventName] = [];
+    }
+
+    this.eventListeners[eventName].push(handler);
+    return this;
+  };
+
+  FantasyBoxCore.prototype.off = function (eventName, handler) {
+    if (!eventName || !this.eventListeners[eventName]) {
+      return this;
+    }
+
+    if (!handler) {
+      this.eventListeners[eventName] = [];
+      return this;
+    }
+
+    this.eventListeners[eventName] = this.eventListeners[eventName].filter(function (cb) {
+      return cb !== handler;
+    });
+    return this;
+  };
+
+  FantasyBoxCore.prototype.emit = function (eventName, payload) {
+    var handlers = this.eventListeners[eventName] || [];
+    handlers.slice().forEach(function (handler) {
+      try {
+        handler(payload);
+      } catch (error) {
+        setTimeout(function () {
+          throw error;
+        }, 0);
+      }
+    });
+    return this;
+  };
+
+  FantasyBoxCore.prototype.getHashToken = function () {
+    return "fbx=" + encodeURIComponent(this.id + ":" + this.index);
+  };
+
+  FantasyBoxCore.prototype.updateHash = function (push) {
+    if (!this.hashState.enabled || FantasyBox.getTopInstance() !== this) {
+      return;
+    }
+
+    FantasyBox.writeHash(this.getHashToken(), !!push);
+  };
+
+  FantasyBoxCore.prototype.restoreHash = function () {
+    if (!this.hashState.enabled) {
+      return;
+    }
+
+    if (this.hashState.previous) {
+      FantasyBox.writeHash(this.hashState.previous, false);
+    } else {
+      FantasyBox.writeHash("", false);
+    }
+  };
 
   FantasyBoxCore.prototype.build = function () {
     if (this.dom.root) {
@@ -729,24 +816,29 @@
   };
 
   FantasyBoxCore.prototype.open = function () {
+    this.emit("init", { instance: this, items: this.items, index: this.index });
     this.build();
     this.bindEvents();
     this.isOpen = true;
+    this.hashState.previous = FantasyBox.readHash();
 
     document.body.appendChild(this.dom.root);
     FantasyBox.instances.push(this);
     FantasyBox.syncStack();
     this.dom.root.offsetHeight;
     this.dom.root.classList.add("is-open");
+    this.updateHash(true);
     this.renderCurrent();
     this.dom.panel.focus();
+    this.emit("open", { instance: this, item: this.getCurrentItem(), index: this.index });
   };
 
-  FantasyBoxCore.prototype.close = function (silent) {
+  FantasyBoxCore.prototype.close = function (silent, context) {
     if (!this.isOpen) {
       return;
     }
 
+    this.emit("close", { instance: this, item: this.getCurrentItem(), index: this.index });
     this.isOpen = false;
     this.stopSlideshow();
     this.unloadMedia();
@@ -767,6 +859,9 @@
       return instance !== this;
     }, this);
     FantasyBox.syncStack();
+    if (!(context && context.skipHashRestore)) {
+      this.restoreHash();
+    }
 
     if (!silent && this.lastFocused && typeof this.lastFocused.focus === "function") {
       this.lastFocused.focus();
@@ -774,6 +869,7 @@
   };
 
   FantasyBoxCore.prototype.destroy = function () {
+    this.emit("destroy", { instance: this });
     this.close(true);
     this.unbindEvents();
     this.dom = {};
@@ -802,9 +898,17 @@
       return;
     }
 
+    var previousIndex = this.index;
     this.index = nextIndex;
+    this.updateHash(false);
     this.renderCurrent();
     this.scheduleSlideshow();
+    this.emit("change", {
+      instance: this,
+      item: this.getCurrentItem(),
+      index: this.index,
+      previousIndex: previousIndex,
+    });
   };
 
   FantasyBoxCore.prototype.prev = function () {
@@ -846,6 +950,7 @@
     this.unloadMedia();
     this.dom.loading.hidden = false;
     this.dom.frame.innerHTML = "";
+    this.emit("loading", { instance: this, item: item, index: this.index });
     this.resetZoom();
     this.updateMeta(item);
     this.updateNavigation();
@@ -862,6 +967,7 @@
         self.dom.loading.hidden = true;
         self.limitPan();
         self.preloadAround();
+        self.emit("loaded", { instance: self, item: item, index: self.index });
       });
       content.addEventListener("error", function () {
         self.renderError("Unable to load image.");
@@ -880,6 +986,7 @@
       }
       content.addEventListener("loadeddata", function () {
         self.dom.loading.hidden = true;
+        self.emit("loaded", { instance: self, item: item, index: self.index });
       });
       content.addEventListener("error", function () {
         self.renderError("Unable to load video.");
@@ -896,6 +1003,7 @@
       });
       content.addEventListener("load", function () {
         self.dom.loading.hidden = true;
+        self.emit("loaded", { instance: self, item: item, index: self.index });
       });
       content.src = item.type === "embed" ? item.embedSrc : item.src;
       this.dom.frame.appendChild(content);
@@ -915,6 +1023,7 @@
           }
           content.innerHTML = html;
           self.dom.loading.hidden = true;
+          self.emit("loaded", { instance: self, item: item, index: self.index });
         })
         .catch(function () {
           self.renderError("Unable to load Ajax content.");
@@ -927,6 +1036,7 @@
       if (source) {
         content.innerHTML = source.innerHTML;
         this.dom.loading.hidden = true;
+        this.emit("loaded", { instance: this, item: item, index: this.index });
       } else {
         this.renderError("Inline content not found.");
         return;
@@ -937,6 +1047,7 @@
       content = createElement("div", "fantasybox__media fantasybox__media--html");
       content.innerHTML = item.html;
       this.dom.loading.hidden = true;
+      this.emit("loaded", { instance: this, item: item, index: this.index });
       this.dom.frame.appendChild(content);
       this.dom.image = null;
     } else {
@@ -953,6 +1064,12 @@
     this.dom.frame.innerHTML =
       '<div class="fantasybox__error">' + sanitizeHtml(message || "Unable to open content.") + "</div>";
     this.dom.image = null;
+    this.emit("error", {
+      instance: this,
+      item: this.getCurrentItem(),
+      index: this.index,
+      message: message || "Unable to open content.",
+    });
   };
 
   FantasyBoxCore.prototype.updateMeta = function (item) {
@@ -1096,8 +1213,10 @@
 
     if (document.fullscreenElement === this.dom.root || document.fullscreenElement === this.dom.panel) {
       document.exitFullscreen();
+      this.emit("fullscreenChange", { instance: this, active: false });
     } else {
       this.dom.root.requestFullscreen();
+      this.emit("fullscreenChange", { instance: this, active: true });
     }
   };
 
@@ -1122,6 +1241,7 @@
     this.isSlideshowRunning = true;
     this.updateToolbarState();
     this.scheduleSlideshow();
+    this.emit("slideshowStart", { instance: this, index: this.index });
   };
 
   FantasyBoxCore.prototype.stopSlideshow = function () {
@@ -1131,6 +1251,7 @@
     if (this.dom.slideshowButton) {
       this.updateToolbarState();
     }
+    this.emit("slideshowStop", { instance: this, index: this.index });
   };
 
   FantasyBoxCore.prototype.toggleSlideshow = function () {
@@ -1187,9 +1308,61 @@
 
   FantasyBox.instances = [];
   FantasyBox._bindings = [];
+  FantasyBox._hashListenerBound = false;
 
   FantasyBox.getTopInstance = function () {
     return FantasyBox.instances[FantasyBox.instances.length - 1] || null;
+  };
+
+  FantasyBox.readHash = function () {
+    return window.location.hash ? window.location.hash.slice(1) : "";
+  };
+
+  FantasyBox.writeHash = function (value, push) {
+    var newHash = value ? "#" + value : window.location.pathname + window.location.search;
+
+    if (push) {
+      window.history.pushState(null, "", newHash);
+    } else {
+      window.history.replaceState(null, "", newHash);
+    }
+  };
+
+  FantasyBox.bindHashListener = function () {
+    if (FantasyBox._hashListenerBound) {
+      return;
+    }
+
+    window.addEventListener("hashchange", function () {
+      var topInstance = FantasyBox.getTopInstance();
+      var hash = FantasyBox.readHash();
+
+      if (!topInstance || !topInstance.hashState.enabled) {
+        return;
+      }
+
+      if (!hash) {
+        topInstance.close(true, { skipHashRestore: true });
+        return;
+      }
+
+      if (hash.indexOf("fbx=") !== 0) {
+        return;
+      }
+
+      var token = decodeURIComponent(hash.slice(4));
+      var parts = token.split(":");
+      var instanceId = parts[0];
+      var nextIndex = Number(parts[1]);
+
+      if (instanceId !== topInstance.id || !Number.isFinite(nextIndex)) {
+        return;
+      }
+
+      topInstance.goTo(clamp(nextIndex, 0, topInstance.items.length - 1));
+    });
+
+    FantasyBox._hashListenerBound = true;
   };
 
   FantasyBox.syncStack = function () {
@@ -1204,6 +1377,7 @@
 
   FantasyBox.open = function (items, options) {
     var instance = new FantasyBoxCore(items, options);
+    FantasyBox.bindHashListener();
     instance.open();
     return instance;
   };
@@ -1256,6 +1430,20 @@
 
   FantasyBox.scan = function (options) {
     FantasyBox.bind("[data-fantasybox], [data-lightbox], [data-gallery]", options);
+  };
+
+  FantasyBox.on = function (instance, eventName, handler) {
+    if (instance && typeof instance.on === "function") {
+      instance.on(eventName, handler);
+    }
+    return instance;
+  };
+
+  FantasyBox.off = function (instance, eventName, handler) {
+    if (instance && typeof instance.off === "function") {
+      instance.off(eventName, handler);
+    }
+    return instance;
   };
 
   return FantasyBox;

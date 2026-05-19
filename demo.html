@@ -105,6 +105,16 @@
                 display: none;
                 max-width: 560px;
             }
+
+            .event-log {
+                margin-top: 16px;
+                padding: 12px 14px;
+                border-radius: 12px;
+                background: rgba(255, 255, 255, 0.06);
+                font: 13px/1.5 Consolas, "Courier New", monospace;
+                color: rgba(234, 240, 255, 0.86);
+                white-space: pre-wrap;
+            }
         </style>
     </head>
     <body>
@@ -199,6 +209,7 @@
                         打开 iframe
                     </a>
                 </div>
+                <div class="event-log" id="event-log">事件日志：</div>
             </section>
 
             <div class="hidden-inline" id="inline-card">
@@ -210,13 +221,41 @@
 
         <script src="./fantasybox.js"></script>
         <script>
+            const eventLog = document.getElementById("event-log");
+
+            function appendLog(line) {
+                const time = new Date().toLocaleTimeString();
+                eventLog.textContent = `${eventLog.textContent}\n[${time}] ${line}`;
+            }
+
             FantasyBox.bind("[data-fantasybox]", {
                 loop: true,
                 showCaption: true,
                 showCounter: true,
                 showThumbnails: true,
                 wheelZoom: true,
-                dragToPan: true
+                dragToPan: true,
+                hash: true,
+                on: {
+                    init(payload) {
+                        appendLog(`init -> ${payload.instance.id}`);
+                    },
+                    open(payload) {
+                        appendLog(`open -> index ${payload.index}, hash=${location.hash || "(empty)"}`);
+                    },
+                    change(payload) {
+                        appendLog(`change -> ${payload.previousIndex} -> ${payload.index}, hash=${location.hash || "(empty)"}`);
+                    },
+                    loaded(payload) {
+                        appendLog(`loaded -> ${payload.item.type} @ ${payload.index}`);
+                    },
+                    close(payload) {
+                        appendLog(`close -> index ${payload.index}, hash=${location.hash || "(empty)"}`);
+                    },
+                    error(payload) {
+                        appendLog(`error -> ${payload.message}`);
+                    }
+                }
             });
         </script>
     </body>
