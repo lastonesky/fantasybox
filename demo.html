@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>FantasyBox Demo</title>
+        <link rel="stylesheet" href="./fantasybox.css" />
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                margin: 0;
+                font-family: "Segoe UI", Arial, sans-serif;
+                color: #eaf0ff;
+                background:
+                    radial-gradient(circle at top, rgba(96, 130, 255, 0.15), transparent 30%),
+                    linear-gradient(180deg, #10131d, #0a0c13);
+            }
+
+            .page {
+                width: min(1100px, calc(100vw - 32px));
+                margin: 0 auto;
+                padding: 40px 0 64px;
+            }
+
+            h1 {
+                margin: 0 0 10px;
+                font-size: 32px;
+            }
+
+            .intro {
+                margin: 0 0 24px;
+                line-height: 1.6;
+                color: rgba(234, 240, 255, 0.78);
+            }
+
+            .section {
+                margin-top: 32px;
+            }
+
+            .section h2 {
+                margin: 0 0 14px;
+                font-size: 22px;
+            }
+
+            .my-gallery {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 16px;
+            }
+
+            .my-gallery a {
+                display: block;
+                border-radius: 18px;
+                overflow: hidden;
+                text-decoration: none;
+                background: rgba(255, 255, 255, 0.04);
+                box-shadow: 0 18px 36px rgba(0, 0, 0, 0.2);
+                transition: transform 160ms ease, box-shadow 160ms ease;
+            }
+
+            .my-gallery a:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 24px 40px rgba(0, 0, 0, 0.28);
+            }
+
+            .my-gallery img {
+                display: block;
+                width: 100%;
+                aspect-ratio: 4 / 3;
+                object-fit: cover;
+            }
+
+            .card-caption {
+                padding: 12px 14px;
+                font-size: 14px;
+                color: rgba(234, 240, 255, 0.88);
+            }
+
+            .action-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 12px;
+            }
+
+            .action-row a,
+            .action-row button {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 160px;
+                min-height: 44px;
+                padding: 0 16px;
+                border: 0;
+                border-radius: 12px;
+                text-decoration: none;
+                color: #f3f6ff;
+                background: rgba(255, 255, 255, 0.08);
+                cursor: pointer;
+            }
+
+            .hidden-inline {
+                display: none;
+                max-width: 560px;
+            }
+        </style>
+    </head>
+    <body>
+        <main class="page">
+            <h1>FantasyBox 演示页</h1>
+            <p class="intro">
+                这个页面用于对照验证 Fancybox 常见功能：分组浏览、缩略图、双击/滚轮/触控缩放、拖拽平移、iframe、视频、内联内容、Ajax、下载、全屏和幻灯片播放。
+            </p>
+
+            <section class="section">
+                <h2>记账图片组 A</h2>
+                <div class="my-gallery" id="gallery-a">
+                    <a
+                        href="https://biati-digital.github.io/glightbox/demo/img/large/gm3.jpg"
+                        data-fantasybox="accounts-a"
+                        data-caption="记账图片 A1"
+                        target="_blank"
+                    >
+                        <img
+                            src="https://biati-digital.github.io/glightbox/demo/img/small/gm3.jpg"
+                            alt="记账图片 A1"
+                        />
+                        <div class="card-caption">记账图片 A1</div>
+                    </a>
+                    <a
+                        href="https://biati-digital.github.io/glightbox/demo/img/large/gm1.jpg"
+                        data-fantasybox="accounts-a"
+                        data-caption="记账图片 A2"
+                        target="_blank"
+                    >
+                        <img
+                            src="https://biati-digital.github.io/glightbox/demo/img/small/gm1.jpg"
+                            alt="记账图片 A2"
+                        />
+                        <div class="card-caption">记账图片 A2</div>
+                    </a>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>记账图片组 B</h2>
+                <div class="my-gallery" id="gallery-b">
+                    <a
+                        href="https://biati-digital.github.io/glightbox/demo/img/large/gm4.jpg"
+                        data-fantasybox="accounts-b"
+                        data-caption="记账图片 B1"
+                        target="_blank"
+                    >
+                        <img
+                            src="https://biati-digital.github.io/glightbox/demo/img/small/gm4.jpg"
+                            alt="记账图片 B1"
+                        />
+                        <div class="card-caption">记账图片 B1</div>
+                    </a>
+                    <a
+                        href="https://biati-digital.github.io/glightbox/demo/img/large/gm5.jpg"
+                        data-fantasybox="accounts-b"
+                        data-caption="记账图片 B2"
+                        target="_blank"
+                    >
+                        <img
+                            src="https://biati-digital.github.io/glightbox/demo/img/small/gm5.jpg"
+                            alt="记账图片 B2"
+                        />
+                        <div class="card-caption">记账图片 B2</div>
+                    </a>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>其它内容类型</h2>
+                <div class="action-row">
+                    <button type="button" data-fantasybox data-src="#inline-card" data-type="inline" data-caption="内联内容示例">
+                        打开内联内容
+                    </button>
+                    <a href="./demo-ajax.html" data-fantasybox data-type="ajax" data-caption="Ajax 内容示例">
+                        打开 Ajax 内容
+                    </a>
+                    <a
+                        href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                        data-fantasybox
+                        data-caption="YouTube 视频示例"
+                    >
+                        打开 YouTube
+                    </a>
+                    <a
+                        href="https://www.example.com"
+                        data-fantasybox
+                        data-type="iframe"
+                        data-caption="Iframe 页面示例"
+                    >
+                        打开 iframe
+                    </a>
+                </div>
+            </section>
+
+            <div class="hidden-inline" id="inline-card">
+                <h2>内联账单详情</h2>
+                <p>这个内容块通过 `data-src="#inline-card"` 打开，用来验证 inline 类型和焦点约束。</p>
+                <p><input type="text" value="这里可以测试输入框焦点" style="width: 100%; min-height: 38px;" /></p>
+            </div>
+        </main>
+
+        <script src="./fantasybox.js"></script>
+        <script>
+            FantasyBox.bind("[data-fantasybox]", {
+                loop: true,
+                showCaption: true,
+                showCounter: true,
+                showThumbnails: true,
+                wheelZoom: true,
+                dragToPan: true
+            });
+        </script>
+    </body>
+</html>
