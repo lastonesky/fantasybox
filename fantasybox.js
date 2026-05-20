@@ -228,6 +228,37 @@
       )
     );
 
+  const slugifyHashGroup = value =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9_-]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+
+  const parseHashState = rawHash => {
+    if (!rawHash || !rawHash.startsWith("fbx=")) {
+      return null;
+    }
+
+    const token = decodeURIComponent(rawHash.slice(4));
+    const separatorIndex = token.lastIndexOf(":");
+
+    if (separatorIndex === -1) {
+      return null;
+    }
+
+    const group = token.slice(0, separatorIndex);
+    const index = Number(token.slice(separatorIndex + 1));
+
+    if (!group || !Number.isFinite(index)) {
+      return null;
+    }
+
+    return { group, index };
+  };
+
   class FantasyBoxCore {
     constructor(items, options) {
       this.id = `fantasybox-${++instanceCounter}`;
@@ -259,6 +290,7 @@
       this.hashState = {
         enabled: !!this.options.hash,
         previous: "",
+        group: typeof this.options.hash === "string" ? slugifyHashGroup(this.options.hash) : this.options.hashGroup || "",
       };
       this.lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       this.imageCache = [];
@@ -334,7 +366,11 @@
     }
 
     getHashToken() {
-      return `fbx=${encodeURIComponent(`${this.id}:${this.index}`)}`;
+      if (!this.hashState.group) {
+        return "";
+      }
+
+      return `fbx=${encodeURIComponent(`${this.hashState.group}:${this.index}`)}`;
     }
 
     updateHash(push = false) {
@@ -342,7 +378,13 @@
         return;
       }
 
-      FantasyBox.writeHash(this.getHashToken(), push);
+      const token = this.getHashToken();
+      if (!token) {
+        return;
+      }
+
+      const currentHash = FantasyBox.readHash();
+      FantasyBox.writeHash(token, push && currentHash !== token);
     }
 
     restoreHash() {
@@ -674,7 +716,7 @@
           this.applyImageTransform();
         } else if (this.dragMode === "swipe") {
           this.swipeDeltaX = deltaX;
-          this.setSlideOffset(this.getActiveSlide(), deltaX, true);
+          this.updateSwipePreview(deltaX);
         }
       };
 
@@ -899,13 +941,14 @@
       return this.dom.frame?.querySelector(".fantasybox__slide.is-current") || null;
     }
 
-    setSlideOffset(slide, offset, immediate = false) {
+    setSlideState(slide, { offset = 0, scale = 1, opacity = 1, immediate = false } = {}) {
       if (!slide) {
         return;
       }
 
       slide.style.transition = immediate ? "none" : "";
-      slide.style.transform = `translate3d(${offset}px, 0, 0)`;
+      slide.style.transform = `translate3d(${offset}px, 0, 0) scale(${scale})`;
+      slide.style.opacity = String(opacity);
     }
 
     resetSwipePosition() {
@@ -914,12 +957,138 @@
         return;
       }
 
-      activeSlide.style.transition = "";
-      activeSlide.style.transform = "translate3d(0, 0, 0)";
+      this.setSlideState(activeSlide, { offset: 0, scale: 1, opacity: 1, immediate: false });
+      this.clearSwipeNeighbors(false);
     }
 
     createSlide() {
       return createElement("div", "fantasybox__slide");
+    }
+
+    getWrappedIndex(index) {
+      if (!this.items.length) {
+        return -1;
+      }
+
+      if (this.options.loop) {
+        return (index + this.items.length) % this.items.length;
+      }
+
+      return index < 0 || index >= this.items.length ? -1 : index;
+    }
+
+    getSwipePreviewSlide(side) {
+      return this.dom.frame?.querySelector(`.fantasybox__slide--preview[data-side="${side}"]`) || null;
+    }
+
+    createPreviewSlide(item, side) {
+      const slide = createElement("div", "fantasybox__slide fantasybox__slide--preview", { "data-side": side });
+      const previewSrc = item.thumb || item.poster || (item.type === "image" ? item.src : "");
+
+      if (previewSrc) {
+        const previewImage = createElement("img", "fantasybox__media fantasybox__media--image fantasybox__media--preview", {
+          alt: item.alt || item.caption || "",
+          draggable: "false",
+          loading: "eager",
+        });
+        previewImage.src = previewSrc;
+        slide.appendChild(previewImage);
+      } else {
+        const fallback = createElement("div", "fantasybox__media fantasybox__media--html fantasybox__media--preview");
+        fallback.innerHTML = `<div class="fantasybox__preview-label">${sanitizeHtml(item.caption || `Item ${item.index + 1}`)}</div>`;
+        slide.appendChild(fallback);
+      }
+
+      this.dom.frame.appendChild(slide);
+      return slide;
+    }
+
+    ensureSwipeNeighbors() {
+      const previousIndex = this.getWrappedIndex(this.index - 1);
+      const nextIndex = this.getWrappedIndex(this.index + 1);
+
+      if (previousIndex !== -1 && !this.getSwipePreviewSlide("prev")) {
+        this.createPreviewSlide(this.items[previousIndex], "prev");
+      }
+
+      if (nextIndex !== -1 && !this.getSwipePreviewSlide("next")) {
+        this.createPreviewSlide(this.items[nextIndex], "next");
+      }
+    }
+
+    clearSwipeNeighbors(immediate = true) {
+      const previousSlide = this.getSwipePreviewSlide("prev");
+      const nextSlide = this.getSwipePreviewSlide("next");
+      const frameWidth = this.dom.viewport.clientWidth || this.dom.frame.clientWidth || 1;
+      const remove = slide => {
+        this.unloadMedia(slide);
+        slide.remove();
+      };
+
+      [previousSlide, nextSlide].forEach((slide, index) => {
+        if (!slide) {
+          return;
+        }
+
+        if (immediate) {
+          remove(slide);
+          return;
+        }
+
+        const direction = index === 0 ? -1 : 1;
+        this.setSlideState(slide, {
+          offset: direction * (frameWidth - Math.min(96, frameWidth * 0.16)),
+          scale: 0.98,
+          opacity: 0,
+          immediate: false,
+        });
+        window.setTimeout(() => remove(slide), SLIDE_ANIMATION_MS);
+      });
+    }
+
+    updateSwipePreview(deltaX) {
+      const activeSlide = this.getActiveSlide();
+      if (!activeSlide) {
+        return;
+      }
+
+      this.ensureSwipeNeighbors();
+
+      const frameWidth = this.dom.viewport.clientWidth || this.dom.frame.clientWidth || 1;
+      const peek = Math.min(96, frameWidth * 0.16);
+      const previewBaseOffset = frameWidth - peek;
+      const progress = clamp(Math.abs(deltaX) / frameWidth, 0, 1);
+      const currentScale = 1 - progress * 0.035;
+      const currentOpacity = 1 - progress * 0.28;
+      const previousSlide = this.getSwipePreviewSlide("prev");
+      const nextSlide = this.getSwipePreviewSlide("next");
+
+      this.setSlideState(activeSlide, {
+        offset: deltaX,
+        scale: currentScale,
+        opacity: currentOpacity,
+        immediate: true,
+      });
+
+      if (previousSlide) {
+        const previousProgress = deltaX > 0 ? progress : 0;
+        this.setSlideState(previousSlide, {
+          offset: deltaX - previewBaseOffset,
+          scale: 0.98 + previousProgress * 0.02,
+          opacity: 0.18 + previousProgress * 0.82,
+          immediate: true,
+        });
+      }
+
+      if (nextSlide) {
+        const nextProgress = deltaX < 0 ? progress : 0;
+        this.setSlideState(nextSlide, {
+          offset: deltaX + previewBaseOffset,
+          scale: 0.98 + nextProgress * 0.02,
+          opacity: 0.18 + nextProgress * 0.82,
+          immediate: true,
+        });
+      }
     }
 
     clearFrame() {
@@ -940,19 +1109,38 @@
       const enteringOffset = frameWidth * direction + swipeOffset;
       const leavingOffset = swipeOffset - frameWidth * direction;
 
+      this.clearSwipeNeighbors(true);
       currentSlide.classList.remove("is-current");
       currentSlide.classList.add("is-leaving");
       nextSlide.classList.add("is-current", "is-entering");
       this.dom.frame.appendChild(nextSlide);
 
-      this.setSlideOffset(currentSlide, swipeOffset, true);
-      this.setSlideOffset(nextSlide, enteringOffset, true);
+      this.setSlideState(currentSlide, {
+        offset: swipeOffset,
+        scale: 0.97,
+        opacity: 0.78,
+        immediate: true,
+      });
+      this.setSlideState(nextSlide, {
+        offset: enteringOffset,
+        scale: 0.97,
+        opacity: 0.65,
+        immediate: true,
+      });
 
       requestAnimationFrame(() => {
-        currentSlide.style.transition = "";
-        nextSlide.style.transition = "";
-        currentSlide.style.transform = `translate3d(${leavingOffset}px, 0, 0)`;
-        nextSlide.style.transform = "translate3d(0, 0, 0)";
+        this.setSlideState(currentSlide, {
+          offset: leavingOffset,
+          scale: 0.95,
+          opacity: 0.18,
+          immediate: false,
+        });
+        this.setSlideState(nextSlide, {
+          offset: 0,
+          scale: 1,
+          opacity: 1,
+          immediate: false,
+        });
       });
 
       window.setTimeout(() => {
@@ -1412,34 +1600,89 @@
     }
 
     window.addEventListener("hashchange", () => {
-      const topInstance = FantasyBox.getTopInstance();
-      const hash = FantasyBox.readHash();
-
-      if (!topInstance || !topInstance.hashState.enabled) {
-        return;
-      }
-
-      if (!hash) {
-        topInstance.close(true, { skipHashRestore: true });
-        return;
-      }
-
-      if (!hash.startsWith("fbx=")) {
-        return;
-      }
-
-      const token = decodeURIComponent(hash.slice(4));
-      const [instanceId, indexToken] = token.split(":");
-      const nextIndex = Number(indexToken);
-
-      if (instanceId !== topInstance.id || !Number.isFinite(nextIndex)) {
-        return;
-      }
-
-      topInstance.goTo(clamp(nextIndex, 0, topInstance.items.length - 1));
+      FantasyBox.handleHashChange();
     });
 
     FantasyBox._hashListenerBound = true;
+  };
+
+  FantasyBox.findBindingMatchByGroup = group => {
+    if (!group) {
+      return null;
+    }
+
+    for (const { selector, options } of FantasyBox._bindings) {
+      const nodes = Array.from(document.querySelectorAll(selector));
+      const match = nodes.find(node => {
+        const nodeGroup =
+          node.getAttribute("data-fantasybox") ||
+          node.getAttribute("data-lightbox") ||
+          node.getAttribute("data-gallery") ||
+          "";
+
+        return slugifyHashGroup(nodeGroup) === group;
+      });
+
+      if (match) {
+        return { node: match, options };
+      }
+    }
+
+    return null;
+  };
+
+  FantasyBox.openFromHash = hashState => {
+    const match = FantasyBox.findBindingMatchByGroup(hashState.group);
+    if (!match) {
+      return false;
+    }
+
+    const nodeGroup =
+      match.node.getAttribute("data-fantasybox") ||
+      match.node.getAttribute("data-lightbox") ||
+      match.node.getAttribute("data-gallery") ||
+      "";
+
+    const groupNodes = Array.from(
+      document.querySelectorAll(
+        `[data-fantasybox="${nodeGroup}"], [data-lightbox="${nodeGroup}"], [data-gallery="${nodeGroup}"]`
+      )
+    );
+    const items = groupNodes.map(extractItemFromNode);
+    const startIndex = clamp(hashState.index, 0, Math.max(items.length - 1, 0));
+
+    FantasyBox.open(items, mergeOptions(match.options, { startIndex, hashGroup: hashState.group }));
+    return true;
+  };
+
+  FantasyBox.handleHashChange = () => {
+    const hash = FantasyBox.readHash();
+    const hashState = parseHashState(hash);
+    const topInstance = FantasyBox.getTopInstance();
+
+    if (!hashState) {
+      if (topInstance?.hashState.enabled) {
+        topInstance.close(true, { skipHashRestore: true });
+      }
+      return;
+    }
+
+    if (!topInstance) {
+      FantasyBox.openFromHash(hashState);
+      return;
+    }
+
+    if (!topInstance.hashState.enabled) {
+      return;
+    }
+
+    if (topInstance.hashState.group !== hashState.group) {
+      topInstance.close(true, { skipHashRestore: true });
+      FantasyBox.openFromHash(hashState);
+      return;
+    }
+
+    topInstance.goTo(clamp(hashState.index, 0, topInstance.items.length - 1));
   };
 
   FantasyBox.syncStack = () => {
@@ -1492,13 +1735,19 @@
 
         const items = groupNodes.map(extractItemFromNode);
         const startIndex = Math.max(groupNodes.indexOf(node), 0);
+        const hashGroup =
+          typeof options.hash === "string"
+            ? slugifyHashGroup(options.hash)
+            : slugifyHashGroup(groupName);
 
         event.preventDefault();
-        FantasyBox.open(items, mergeOptions(options, { startIndex }));
+        FantasyBox.open(items, mergeOptions(options, { startIndex, hashGroup }));
       });
     });
 
     FantasyBox._bindings.push({ selector, options });
+    FantasyBox.bindHashListener();
+    FantasyBox.handleHashChange();
   };
 
   FantasyBox.scan = (options = {}) => {
