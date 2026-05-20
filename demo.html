@@ -106,6 +106,12 @@
                 max-width: 560px;
             }
 
+            @media (max-width: 900px) {
+                .fantasybox.is-mobile-navless .fantasybox__nav {
+                    display: none;
+                }
+            }
+
             .event-log {
                 margin-top: 16px;
                 padding: 12px 14px;
@@ -212,6 +218,14 @@
                 <div class="event-log" id="event-log">事件日志：</div>
             </section>
 
+            <section class="section">
+                <h2>定制样式示例</h2>
+                <p class="intro">这个示例会在移动端隐藏左右导航箭头，桌面端保持默认显示。</p>
+                <div class="action-row">
+                    <button type="button" id="open-mobile-navless-demo">打开移动端无左右箭头示例</button>
+                </div>
+            </section>
+
             <div class="hidden-inline" id="inline-card">
                 <h2>内联账单详情</h2>
                 <p>这个内容块通过 `data-src="#inline-card"` 打开，用来验证 inline 类型和焦点约束。</p>
@@ -222,6 +236,7 @@
         <script src="./fantasybox.js"></script>
         <script>
             const eventLog = document.getElementById("event-log");
+            const mobileNavlessDemoButton = document.getElementById("open-mobile-navless-demo");
 
             function appendLog(line) {
                 const time = new Date().toLocaleTimeString();
@@ -262,6 +277,43 @@
                         appendLog(`error -> ${payload.message}`);
                     }
                 }
+            });
+
+            mobileNavlessDemoButton.addEventListener("click", () => {
+                const instance = FantasyBox.open(
+                    [
+                        {
+                            src: "https://biati-digital.github.io/glightbox/demo/img/large/gm3.jpg",
+                            thumb: "https://biati-digital.github.io/glightbox/demo/img/small/gm3.jpg",
+                            caption: "移动端隐藏左右箭头 A1",
+                            alt: "移动端隐藏左右箭头 A1"
+                        },
+                        {
+                            src: "https://biati-digital.github.io/glightbox/demo/img/large/gm4.jpg",
+                            thumb: "https://biati-digital.github.io/glightbox/demo/img/small/gm4.jpg",
+                            caption: "移动端隐藏左右箭头 A2",
+                            alt: "移动端隐藏左右箭头 A2"
+                        },
+                        {
+                            src: "https://biati-digital.github.io/glightbox/demo/img/large/gm5.jpg",
+                            thumb: "https://biati-digital.github.io/glightbox/demo/img/small/gm5.jpg",
+                            caption: "移动端隐藏左右箭头 A3",
+                            alt: "移动端隐藏左右箭头 A3"
+                        }
+                    ],
+                    {
+                        showCaption: true,
+                        showCounter: true,
+                        showThumbnails: true,
+                        on: {
+                            open(payload) {
+                                payload.instance.dom.root.classList.add("is-mobile-navless");
+                            }
+                        }
+                    }
+                );
+
+                appendLog(`open -> custom style demo ${instance.id}`);
             });
         </script>
     </body>
