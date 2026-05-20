@@ -72,6 +72,7 @@
   grid-template-columns: minmax(0, 1fr) auto auto auto;
   gap: 12px;
   align-items: start;
+  transition: opacity var(--fb-speed) ease, transform var(--fb-speed) ease;
 }
 
 .fantasybox__meta {
@@ -119,6 +120,13 @@
   color: var(--fb-text);
   cursor: pointer;
   transition: background var(--fb-speed) ease, transform var(--fb-speed) ease, opacity var(--fb-speed) ease;
+}
+
+.fantasybox__nav {
+  transition:
+    background var(--fb-speed) ease,
+    transform var(--fb-speed) ease,
+    opacity var(--fb-speed) ease;
 }
 
 .fantasybox__button:hover,
@@ -186,11 +194,30 @@
 }
 
 .fantasybox__frame {
+  position: relative;
   width: 100%;
   height: 100%;
+  overflow: hidden;
+}
+
+.fantasybox__slide {
+  position: absolute;
+  inset: 0;
   display: grid;
   place-items: center;
-  transition: transform var(--fb-speed) ease;
+  padding: 0;
+  transform: translate3d(0, 0, 0);
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.fantasybox__slide.is-current {
+  z-index: 1;
+}
+
+.fantasybox__slide.is-entering,
+.fantasybox__slide.is-leaving {
+  z-index: 2;
 }
 
 .fantasybox__media {
@@ -261,6 +288,7 @@
   overflow: auto hidden;
   padding-bottom: 2px;
   scrollbar-width: thin;
+  transition: opacity var(--fb-speed) ease, transform var(--fb-speed) ease;
 }
 
 .fantasybox__thumb {
@@ -291,6 +319,21 @@
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.fantasybox.is-idle .fantasybox__toolbar,
+.fantasybox.is-idle .fantasybox__nav,
+.fantasybox.is-idle .fantasybox__thumbs {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fantasybox.is-idle .fantasybox__toolbar {
+  transform: translateY(-8px);
+}
+
+.fantasybox.is-idle .fantasybox__thumbs {
+  transform: translateY(8px);
 }
 
 @keyframes fantasybox-spin {

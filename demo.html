@@ -249,6 +249,12 @@
                     loaded(payload) {
                         appendLog(`loaded -> ${payload.item.type} @ ${payload.index}`);
                     },
+                    idleStart(payload) {
+                        appendLog(`idleStart -> index ${payload.index}`);
+                    },
+                    idleEnd(payload) {
+                        appendLog(`idleEnd -> index ${payload.index}`);
+                    },
                     close(payload) {
                         appendLog(`close -> index ${payload.index}, hash=${location.hash || "(empty)"}`);
                     },
