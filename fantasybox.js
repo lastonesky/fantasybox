@@ -107,6 +107,26 @@
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
 
+  const getMatchValue = match => (match && match[1] ? match[1] : "");
+
+  const getFullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement || null;
+
+  const canUseFullscreen = () => !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+
+  const requestElementFullscreen = element => {
+    if (!element) {
+      return null;
+    }
+
+    const request = element.requestFullscreen || element.webkitRequestFullscreen;
+    return typeof request === "function" ? request.call(element) : null;
+  };
+
+  const exitDocumentFullscreen = () => {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    return typeof exit === "function" ? exit.call(document) : null;
+  };
+
   const parseYouTube = url => {
     const match =
       url.match(/[?&]v=([^&#]+)/i) ||
@@ -114,7 +134,8 @@
       url.match(/youtube\.com\/shorts\/([^?&#/]+)/i) ||
       url.match(/youtube\.com\/embed\/([^?&#/]+)/i);
 
-    return match?.[1] ? `https://www.youtube.com/embed/${match[1]}?rel=0` : null;
+    const videoId = getMatchValue(match);
+    return videoId ? `https://www.youtube.com/embed/${videoId}?rel=0` : null;
   };
 
   const parseVimeo = url => {
@@ -122,7 +143,8 @@
       url.match(/vimeo\.com\/(?:video\/)?(\d+)/i) ||
       url.match(/player\.vimeo\.com\/video\/(\d+)/i);
 
-    return match?.[1] ? `https://player.vimeo.com/video/${match[1]}` : null;
+    const videoId = getMatchValue(match);
+    return videoId ? `https://player.vimeo.com/video/${videoId}` : null;
   };
 
   const detectType = item => {
@@ -163,13 +185,13 @@
 
     item.index = index;
     item.type = detectType(item);
-    item.caption ||= "";
-    item.thumb ||= "";
-    item.alt ||= item.caption || `Media ${index + 1}`;
-    item.poster ||= "";
-    item.width ||= "";
-    item.height ||= "";
-    item.downloadSrc ||= item.src || "";
+    item.caption = item.caption || "";
+    item.thumb = item.thumb || "";
+    item.alt = item.alt || item.caption || `Media ${index + 1}`;
+    item.poster = item.poster || "";
+    item.width = item.width || "";
+    item.height = item.height || "";
+    item.downloadSrc = item.downloadSrc || item.src || "";
 
     if (item.type === "embed") {
       item.embedSrc = toEmbedUrl(item.src);
@@ -187,16 +209,16 @@
       node.getAttribute("data-caption") ||
       node.getAttribute("title") ||
       node.getAttribute("aria-label") ||
-      image?.getAttribute("alt") ||
-      image?.getAttribute("title") ||
+      (image ? image.getAttribute("alt") : "") ||
+      (image ? image.getAttribute("title") : "") ||
       "";
 
     return {
       src: source,
       type: node.getAttribute("data-type") || "",
       caption,
-      thumb: node.getAttribute("data-thumb") || image?.currentSrc || image?.getAttribute("src") || "",
-      alt: node.getAttribute("data-alt") || image?.getAttribute("alt") || caption,
+      thumb: node.getAttribute("data-thumb") || (image ? image.currentSrc : "") || (image ? image.getAttribute("src") : "") || "",
+      alt: node.getAttribute("data-alt") || (image ? image.getAttribute("alt") : "") || caption,
       poster: node.getAttribute("data-poster") || "",
       html: node.getAttribute("data-html") || "",
       downloadSrc: node.getAttribute("data-download-src") || "",
@@ -401,7 +423,9 @@
       }
 
       this.isIdle = true;
-      this.dom.root?.classList.add("is-idle");
+      if (this.dom.root) {
+        this.dom.root.classList.add("is-idle");
+      }
       this.emit("idleStart", this.createPayload());
     }
 
@@ -411,7 +435,9 @@
       }
 
       this.isIdle = false;
-      this.dom.root?.classList.remove("is-idle");
+      if (this.dom.root) {
+        this.dom.root.classList.remove("is-idle");
+      }
       this.emit("idleEnd", this.createPayload());
     }
 
@@ -625,7 +651,7 @@
 
       this.boundHandlers.onWheel = event => {
         const item = this.getCurrentItem();
-        if (!this.isOpen || !this.options.wheelZoom || item?.type !== "image") {
+        if (!this.isOpen || !this.options.wheelZoom || !item || item.type !== "image") {
           return;
         }
 
@@ -721,7 +747,7 @@
       };
 
       this.boundHandlers.onPointerUp = event => {
-        if (this.dom.viewport.hasPointerCapture?.(event.pointerId)) {
+        if (typeof this.dom.viewport.hasPointerCapture === "function" && this.dom.viewport.hasPointerCapture(event.pointerId)) {
           this.dom.viewport.releasePointerCapture(event.pointerId);
         }
 
@@ -745,9 +771,11 @@
           }
         } else if (
           this.dragMode !== "pinch" &&
-          pointerData?.pointerType === "touch" &&
+          pointerData &&
+          pointerData.pointerType === "touch" &&
           this.options.doubleTapZoom &&
-          this.getCurrentItem()?.type === "image"
+          this.getCurrentItem() &&
+          this.getCurrentItem().type === "image"
         ) {
           const now = Date.now();
           const tapPoint = { x: event.clientX, y: event.clientY };
@@ -786,7 +814,7 @@
 
       this.boundHandlers.onDoubleClick = () => {
         const item = this.getCurrentItem();
-        if (item?.type !== "image") {
+        if (!item || item.type !== "image") {
           return;
         }
 
@@ -802,7 +830,7 @@
       this.boundHandlers.onFullscreenChange = () => {
         this.updateToolbarState();
         this.emit("fullscreenChange", this.createPayload({
-          active: document.fullscreenElement === this.dom.root || document.fullscreenElement === this.dom.panel,
+          active: getFullscreenElement() === this.dom.root || getFullscreenElement() === this.dom.panel,
         }));
       };
 
@@ -908,11 +936,16 @@
       this.unbindEvents();
       this.dom.root.classList.remove("is-open", "is-idle");
 
-      if (document.fullscreenElement === this.dom.root || document.fullscreenElement === this.dom.panel) {
-        document.exitFullscreen?.().catch?.(() => {});
+      if (getFullscreenElement() === this.dom.root || getFullscreenElement() === this.dom.panel) {
+        const exitResult = exitDocumentFullscreen();
+        if (exitResult && typeof exitResult.catch === "function") {
+          exitResult.catch(() => {});
+        }
       }
 
-      this.dom.root.parentNode?.removeChild(this.dom.root);
+      if (this.dom.root.parentNode) {
+        this.dom.root.parentNode.removeChild(this.dom.root);
+      }
 
       FantasyBox.instances = FantasyBox.instances.filter(instance => instance !== this);
       FantasyBox.syncStack();
@@ -921,7 +954,7 @@
         this.restoreHash();
       }
 
-      if (!silent && typeof this.lastFocused?.focus === "function") {
+      if (!silent && this.lastFocused && typeof this.lastFocused.focus === "function") {
         this.lastFocused.focus();
       }
     }
@@ -938,7 +971,7 @@
     }
 
     getActiveSlide() {
-      return this.dom.frame?.querySelector(".fantasybox__slide.is-current") || null;
+      return this.dom.frame ? this.dom.frame.querySelector(".fantasybox__slide.is-current") || null : null;
     }
 
     setSlideState(slide, { offset = 0, scale = 1, opacity = 1, immediate = false } = {}) {
@@ -978,7 +1011,7 @@
     }
 
     getSwipePreviewSlide(side) {
-      return this.dom.frame?.querySelector(`.fantasybox__slide--preview[data-side="${side}"]`) || null;
+      return this.dom.frame ? this.dom.frame.querySelector(`.fantasybox__slide--preview[data-side="${side}"]`) || null : null;
     }
 
     createPreviewSlide(item, side) {
@@ -1390,7 +1423,7 @@
     }
 
     updateZoomControls(item) {
-      const canZoom = item?.type === "image";
+      const canZoom = !!item && item.type === "image";
       this.dom.zoomInButton.disabled = !canZoom || this.zoom >= this.options.maxZoom;
       this.dom.zoomOutButton.disabled = !canZoom || this.zoom <= this.options.minZoom;
     }
@@ -1398,9 +1431,10 @@
     updateToolbarState() {
       const item = this.getCurrentItem();
       const { labels } = this.options;
-      const hasDownload = !!item?.downloadSrc;
+      const hasDownload = !!(item && item.downloadSrc);
       const canSlideshow = this.items.length > 1;
-      const isFullscreen = document.fullscreenElement === this.dom.root || document.fullscreenElement === this.dom.panel;
+      const fullscreenElement = getFullscreenElement();
+      const isFullscreen = fullscreenElement === this.dom.root || fullscreenElement === this.dom.panel;
 
       this.dom.downloadButton.hidden = !this.options.showDownloadButton;
       this.dom.fullscreenButton.hidden = !this.options.showFullscreenButton;
@@ -1417,7 +1451,8 @@
     }
 
     adjustZoom(nextZoom) {
-      if (this.getCurrentItem()?.type !== "image") {
+      const currentItem = this.getCurrentItem();
+      if (!currentItem || currentItem.type !== "image") {
         return;
       }
 
@@ -1460,7 +1495,7 @@
 
     downloadCurrent() {
       const item = this.getCurrentItem();
-      if (!item?.downloadSrc) {
+      if (!item || !item.downloadSrc) {
         return;
       }
 
@@ -1475,14 +1510,14 @@
     }
 
     toggleFullscreen() {
-      if (!document.fullscreenEnabled) {
+      if (!canUseFullscreen()) {
         return;
       }
 
-      if (document.fullscreenElement === this.dom.root || document.fullscreenElement === this.dom.panel) {
-        document.exitFullscreen?.();
+      if (getFullscreenElement() === this.dom.root || getFullscreenElement() === this.dom.panel) {
+        exitDocumentFullscreen();
       } else {
-        this.dom.root.requestFullscreen?.();
+        requestElementFullscreen(this.dom.root);
       }
     }
 
@@ -1540,7 +1575,7 @@
       for (let step = 1; step <= distance; step += 1) {
         [this.index - step, this.index + step].forEach(targetIndex => {
           const item = this.items[(targetIndex + this.items.length) % this.items.length];
-          if (item?.type !== "image") {
+          if (!item || item.type !== "image") {
             return;
           }
 
@@ -1661,7 +1696,7 @@
     const topInstance = FantasyBox.getTopInstance();
 
     if (!hashState) {
-      if (topInstance?.hashState.enabled) {
+      if (topInstance && topInstance.hashState.enabled) {
         topInstance.close(true, { skipHashRestore: true });
       }
       return;
@@ -1695,7 +1730,9 @@
     });
 
     document.documentElement.classList.toggle("fantasybox-lock", FantasyBox.instances.length > 0);
-    topInstance?.resetIdleTimer();
+    if (topInstance) {
+      topInstance.resetIdleTimer();
+    }
   };
 
   FantasyBox.open = (items, options) => {
@@ -1706,7 +1743,10 @@
   };
 
   FantasyBox.close = () => {
-    FantasyBox.getTopInstance()?.close();
+    const instance = FantasyBox.getTopInstance();
+    if (instance) {
+      instance.close();
+    }
   };
 
   FantasyBox.bind = (selector, options = {}) => {
@@ -1755,12 +1795,16 @@
   };
 
   FantasyBox.on = (instance, eventName, handler) => {
-    instance?.on?.(eventName, handler);
+    if (instance && typeof instance.on === "function") {
+      instance.on(eventName, handler);
+    }
     return instance;
   };
 
   FantasyBox.off = (instance, eventName, handler) => {
-    instance?.off?.(eventName, handler);
+    if (instance && typeof instance.off === "function") {
+      instance.off(eventName, handler);
+    }
     return instance;
   };
 
