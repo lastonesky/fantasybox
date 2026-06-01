@@ -1,59 +1,47 @@
 # FantasyBox
 
-FantasyBox is a dependency-free lightbox viewer for images, videos, iframes, inline content, Ajax content, and custom HTML.
+`FantasyBox` 是一个无依赖的原创灯箱组件，支持图片、视频、YouTube、Vimeo、iframe、内联内容、Ajax 内容和自定义 HTML。
 
-It is designed for:
+当前版本重点覆盖这些能力：
 
-- grouped gallery browsing
-- keyboard navigation
-- thumbnails
-- wheel / double-click / touch zoom
-- drag-to-pan and swipe transitions
-- hash navigation
-- fullscreen, download, and slideshow controls
+- 分组画廊浏览
+- 键盘导航与焦点约束
+- 缩略图
+- 滚轮 / 双击 / 触控缩放
+- 拖拽平移与左右滑动切换
+- Hash 深链
+- 全屏、下载、幻灯片播放
 
-## Features
+## 文件说明
 
-- No external dependency
-- Works with plain HTML and vanilla JavaScript
-- Supports images, videos, YouTube, Vimeo, iframes, inline content, Ajax content, and custom HTML
-- Built-in toolbar with close, zoom, fullscreen, download, and slideshow actions
-- Thumbnail strip for grouped items
-- Keyboard support with focus trapping
-- Swipe transition preview and image pan / zoom
-- Hash-based deep linking for grouped galleries
-- Multiple instances can be opened and stacked
+- `fantasybox.js`：主脚本
+- `fantasybox.css`：默认样式
+- `demo.html`：演示页面
+- `demo-ajax.html`：Ajax 内容演示
+- `SAFARI_10_15_COMPAT.md`：Safari 10.15 兼容说明
 
-## Files
+## 快速开始
 
-- `fantasybox.js`: main script
-- `fantasybox.css`: default styles
-- `demo.html`: feature demo page
-- `demo-ajax.html`: Ajax content demo
-- `SAFARI_10_15_COMPAT.md`: compatibility notes for Safari on macOS 10.15
-
-## Quick Start
-
-Include the CSS and JS files:
+先引入样式和脚本：
 
 ```html
 <link rel="stylesheet" href="./fantasybox.css" />
 <script src="./fantasybox.js"></script>
 ```
 
-Create gallery items:
+然后写一组基础图片：
 
 ```html
-<a href="large-1.jpg" data-fantasybox="gallery" data-caption="Image 1">
-  <img src="thumb-1.jpg" alt="Image 1" />
+<a href="large-1.jpg" data-fantasybox="gallery" data-caption="图片 1">
+  <img src="thumb-1.jpg" alt="图片 1" />
 </a>
 
-<a href="large-2.jpg" data-fantasybox="gallery" data-caption="Image 2">
-  <img src="thumb-2.jpg" alt="Image 2" />
+<a href="large-2.jpg" data-fantasybox="gallery" data-caption="图片 2">
+  <img src="thumb-2.jpg" alt="图片 2" />
 </a>
 ```
 
-Bind them:
+最后绑定：
 
 ```html
 <script>
@@ -61,40 +49,40 @@ Bind them:
     loop: true,
     showCaption: true,
     showCounter: true,
-    showThumbnails: true,
+    showThumbnails: true
   });
 </script>
 ```
 
-## Binding Modes
+## 两种接入方式
 
-### 1. Declarative binding
+### 1. 声明式绑定
 
-Use `FantasyBox.bind()` to attach a selector:
+适合页面上的缩略图和灯箱数据一一对应的场景：
 
 ```js
 FantasyBox.bind("[data-fantasybox]", {
   hash: true,
   wheelZoom: true,
-  dragToPan: true,
+  dragToPan: true
 });
 ```
 
-You can also scan common gallery attributes:
+也可以自动扫描常见属性：
 
 ```js
 FantasyBox.scan();
 ```
 
-`FantasyBox.scan()` will bind:
+`FantasyBox.scan()` 会绑定：
 
 ```text
 [data-fantasybox], [data-lightbox], [data-gallery]
 ```
 
-### 2. Programmatic open
+### 2. 编程式打开
 
-You can open items directly with JavaScript:
+适合数据来源于接口、JS 数组、或缩略图和完整相册不完全一致的场景：
 
 ```js
 FantasyBox.open(
@@ -102,32 +90,32 @@ FantasyBox.open(
     {
       src: "large-1.jpg",
       thumb: "thumb-1.jpg",
-      caption: "Image 1",
-      alt: "Image 1",
+      caption: "图片 1",
+      alt: "图片 1"
     },
     {
       src: "large-2.jpg",
       thumb: "thumb-2.jpg",
-      caption: "Image 2",
-      alt: "Image 2",
-    },
+      caption: "图片 2",
+      alt: "图片 2"
+    }
   ],
   {
     startIndex: 0,
-    showThumbnails: true,
+    showThumbnails: true
   }
 );
 ```
 
-Close the top instance:
+关闭最上层实例：
 
 ```js
 FantasyBox.close();
 ```
 
-## Supported Content Types
+## 支持的内容类型
 
-FantasyBox can detect or receive these types:
+`FantasyBox` 可识别或显式接收以下类型：
 
 - `image`
 - `video`
@@ -137,14 +125,106 @@ FantasyBox can detect or receive these types:
 - `inline`
 - `html`
 
-### Auto-detected content
+### 自动识别规则
 
-- image file extensions: jpg, jpeg, png, gif, webp, svg, avif, bmp, ico
-- video file extensions: mp4, m4v, mov, ogv, ogg, webm
-- YouTube and Vimeo links are treated as `embed`
-- links starting with `#` are treated as `inline`
+- 图片扩展名：`jpg`、`jpeg`、`png`、`gif`、`webp`、`svg`、`avif`、`bmp`、`ico`
+- 视频扩展名：`mp4`、`m4v`、`mov`、`ogv`、`ogg`、`webm`
+- `YouTube / Vimeo` 链接会识别为 `embed`
+- 以 `#` 开头的链接会识别为 `inline`
 
-### Inline content example
+## 用例 1：视频展示
+
+当前版本支持：
+
+- HTML5 视频
+- YouTube
+- Vimeo
+- 普通 iframe 视频页
+
+### HTML5 视频示例
+
+```html
+<a
+  href="./video/demo.mp4"
+  data-fantasybox
+  data-type="video"
+  data-poster="./video/poster.jpg"
+  data-caption="HTML5 视频示例"
+>
+  打开视频
+</a>
+```
+
+### 直接用 JS 打开视频
+
+```js
+FantasyBox.open([
+  {
+    src: "./video/demo.mp4",
+    type: "video",
+    poster: "./video/poster.jpg",
+    caption: "本地视频"
+  },
+  {
+    src: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    caption: "YouTube 视频"
+  },
+  {
+    src: "https://vimeo.com/76979871",
+    caption: "Vimeo 视频"
+  }
+]);
+```
+
+## 用例 2：页面只有 4 张入口图，但灯箱里实际浏览 20 张
+
+这是“少量 HTML 入口 + 大量 JS 数据”的混合模式。
+
+适合：
+
+- 首屏只展示 4 张封面图
+- 点击后浏览完整 20 张账单、报表、相册数据
+- 完整数据来自接口或 JS 数组，而不是全部写进 HTML
+
+### HTML 只放 4 个入口
+
+```html
+<div class="report-gallery">
+  <button type="button" data-open-report-gallery data-start-index="0">第 1 组入口</button>
+  <button type="button" data-open-report-gallery data-start-index="5">第 6 组入口</button>
+  <button type="button" data-open-report-gallery data-start-index="10">第 11 组入口</button>
+  <button type="button" data-open-report-gallery data-start-index="15">第 16 组入口</button>
+</div>
+```
+
+### JS 里维护完整 20 条数据
+
+```js
+const allImages = Array.from({ length: 20 }, (_, index) => ({
+  src: `./images/${index + 1}.jpg`,
+  thumb: `./thumbs/${index + 1}.jpg`,
+  caption: `第 ${index + 1} 张`,
+  alt: `第 ${index + 1} 张`
+}));
+
+document.querySelectorAll("[data-open-report-gallery]").forEach(node => {
+  node.addEventListener("click", () => {
+    const startIndex = Number(node.dataset.startIndex || 0);
+
+    FantasyBox.open(allImages, {
+      startIndex,
+      showThumbnails: true,
+      hash: "report-gallery"
+    });
+  });
+});
+```
+
+这类场景更推荐使用 `FantasyBox.open()`，而不是 `FantasyBox.bind()`。
+
+## Inline / Ajax / 自定义 HTML
+
+### Inline 内容
 
 ```html
 <button
@@ -152,45 +232,45 @@ FantasyBox can detect or receive these types:
   data-fantasybox
   data-src="#dialog-content"
   data-type="inline"
-  data-caption="Inline demo"
+  data-caption="内联内容示例"
 >
-  Open inline content
+  打开内联内容
 </button>
 
 <div id="dialog-content" style="display:none;">
-  <h2>Inline content</h2>
-  <p>This content is rendered inside FantasyBox.</p>
+  <h2>内联内容</h2>
+  <p>这段内容会被渲染到灯箱内部。</p>
 </div>
 ```
 
-### Ajax content example
+### Ajax 内容
 
 ```html
 <a
   href="./demo-ajax.html"
   data-fantasybox
   data-type="ajax"
-  data-caption="Ajax demo"
+  data-caption="Ajax 示例"
 >
-  Open Ajax content
+  打开 Ajax 内容
 </a>
 ```
 
-### Custom HTML example
+### 自定义 HTML
 
 ```js
 FantasyBox.open([
   {
     type: "html",
-    html: "<div style='padding:24px'>Custom HTML content</div>",
-    caption: "Custom HTML",
-  },
+    html: "<div style='padding:24px'>自定义 HTML 内容</div>",
+    caption: "自定义 HTML"
+  }
 ]);
 ```
 
-## Supported Data Attributes
+## 支持的数据属性
 
-When using DOM binding, these attributes are supported:
+使用 DOM 绑定时，支持这些属性：
 
 - `data-fantasybox`
 - `data-lightbox`
@@ -206,9 +286,9 @@ When using DOM binding, these attributes are supported:
 - `data-width`
 - `data-height`
 
-## Common Options
+## 常用选项
 
-These are the main options exposed by `FantasyBox.open()` and `FantasyBox.bind()`:
+`FantasyBox.open()` 和 `FantasyBox.bind()` 目前暴露的主要选项如下：
 
 ```js
 {
@@ -247,17 +327,17 @@ These are the main options exposed by `FantasyBox.open()` and `FantasyBox.bind()
     exitFullscreen: "Exit fullscreen",
     startSlideshow: "Start slideshow",
     stopSlideshow: "Stop slideshow",
-    loading: "Loading",
+    loading: "Loading"
   },
-  on: {},
+  on: {}
 }
 ```
 
-## Events
+## 事件
 
-Pass listeners using the `on` option or bind them later with `FantasyBox.on(instance, eventName, handler)`.
+可以通过 `on` 选项传入回调，也可以在实例创建后通过 `FantasyBox.on(instance, eventName, handler)` 订阅。
 
-Common events:
+常用事件：
 
 - `init`
 - `open`
@@ -273,25 +353,25 @@ Common events:
 - `error`
 - `destroy`
 
-Example:
+示例：
 
 ```js
 FantasyBox.bind("[data-fantasybox]", {
   on: {
     open(payload) {
-      console.log("opened", payload.index, payload.item);
+      console.log("打开", payload.index, payload.item);
     },
     change(payload) {
-      console.log("changed", payload.previousIndex, payload.index);
+      console.log("切换", payload.previousIndex, payload.index);
     },
     error(payload) {
       console.error(payload.message);
-    },
-  },
+    }
+  }
 });
 ```
 
-Or later:
+或在实例创建后绑定：
 
 ```js
 const instance = FantasyBox.open([{ src: "large.jpg" }]);
@@ -301,7 +381,7 @@ FantasyBox.on(instance, "open", payload => {
 });
 ```
 
-## Public API
+## 公共 API
 
 - `FantasyBox.open(items, options)`
 - `FantasyBox.close()`
@@ -310,26 +390,34 @@ FantasyBox.on(instance, "open", payload => {
 - `FantasyBox.on(instance, eventName, handler)`
 - `FantasyBox.off(instance, eventName, handler)`
 
-## Hash Navigation
+## Hash 导航
 
-If `hash: true` is enabled, FantasyBox writes state into the URL hash.
+启用 `hash: true` 后，`FantasyBox` 会把当前状态写入 URL hash。
 
-This allows:
+目前支持：
 
-- direct linking to a gallery item
-- restoring state when navigating with browser history
-- opening bound galleries from hash state
+- 直接链接到某个分组和索引
+- 浏览器前进 / 后退恢复状态
+- 页面刷新后按 hash 自动打开已绑定分组
 
-If you want hash support for a specific bound group, use a stable group name:
+如果你要稳定使用 hash，请给分组一个稳定名称：
 
 ```html
 <a href="large-1.jpg" data-fantasybox="billing-gallery">...</a>
 <a href="large-2.jpg" data-fantasybox="billing-gallery">...</a>
 ```
 
-## Custom Styling
+如果你是用 `FantasyBox.open()` 手动打开，也可以直接传稳定的字符串：
 
-FantasyBox uses a dedicated class namespace:
+```js
+FantasyBox.open(items, {
+  hash: "billing-gallery"
+});
+```
+
+## 自定义样式
+
+`FantasyBox` 使用独立类名前缀，便于局部覆写：
 
 ```text
 .fantasybox
@@ -340,7 +428,7 @@ FantasyBox uses a dedicated class namespace:
 .fantasybox__media
 ```
 
-This makes it easy to scope custom styles. Example: hide navigation arrows on mobile for a specific instance:
+例如：某个实例在移动端隐藏左右箭头：
 
 ```css
 @media (max-width: 900px) {
@@ -350,37 +438,39 @@ This makes it easy to scope custom styles. Example: hide navigation arrows on mo
 }
 ```
 
-Then add the custom class when the instance opens:
+然后在打开时加类：
 
 ```js
 FantasyBox.open(items, {
   on: {
     open(payload) {
       payload.instance.dom.root.classList.add("is-mobile-navless");
-    },
-  },
+    }
+  }
 });
 ```
 
-See [demo.html](file:///d:/flash/fantasybox/demo.html) for a working example.
+可直接参考 [demo.html](file:///d:/src/fantasybox/demo.html)。
 
-## Browser Compatibility
+## 兼容性
 
-This project is currently written against a conservative Safari baseline:
+当前项目主要按现代浏览器编写，不考虑：
 
-- target runtime: Safari on Intel macOS 10.15 system default
-- do not assume users upgraded Safari manually
+- IE
+- iOS Safari 10.3 以下版本
 
-For details, see [SAFARI_10_15_COMPAT.md](file:///d:/flash/fantasybox/SAFARI_10_15_COMPAT.md).
+补充说明见 [SAFARI_10_15_COMPAT.md](file:///d:/src/fantasybox/SAFARI_10_15_COMPAT.md)。
 
 ## Demo
 
-Open [demo.html](file:///d:/flash/fantasybox/demo.html) in a browser to try:
+直接打开 [demo.html](file:///d:/src/fantasybox/demo.html) 可以验证：
 
-- grouped image galleries
-- inline content
-- Ajax content
-- YouTube embeds
-- iframe content
-- event logging
-- custom mobile styling demo
+- 两组基础图片画廊
+- 4 张 HTML 入口 + 20 条 JS 数据
+- HTML5 视频
+- YouTube / Vimeo
+- inline 内容
+- Ajax 内容
+- iframe 内容
+- 事件日志
+- 定制移动端样式示例

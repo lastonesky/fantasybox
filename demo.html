@@ -66,6 +66,25 @@
                 box-shadow: 0 24px 40px rgba(0, 0, 0, 0.28);
             }
 
+            .my-gallery button {
+                display: block;
+                width: 100%;
+                border: 0;
+                padding: 0;
+                text-align: left;
+                border-radius: 18px;
+                overflow: hidden;
+                background: rgba(255, 255, 255, 0.04);
+                box-shadow: 0 18px 36px rgba(0, 0, 0, 0.2);
+                cursor: pointer;
+                transition: transform 160ms ease, box-shadow 160ms ease;
+            }
+
+            .my-gallery button:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 24px 40px rgba(0, 0, 0, 0.28);
+            }
+
             .my-gallery img {
                 display: block;
                 width: 100%;
@@ -191,13 +210,50 @@
             </section>
 
             <section class="section">
-                <h2>其它内容类型</h2>
-                <div class="action-row">
-                    <button type="button" data-fantasybox data-src="#inline-card" data-type="inline" data-caption="内联内容示例">
-                        打开内联内容
+                <h2>4 张 HTML 入口 + 20 条 JS 数据</h2>
+                <p class="intro">
+                    页面只渲染 4 张入口缩略图；点击任意一张后，灯箱实际加载并浏览 JS 数组里的 20 条数据。这种方式适合首屏只展示少量封面图，但灯箱里要浏览完整相册的场景。
+                </p>
+                <div class="my-gallery" id="mixed-gallery-preview">
+                    <button type="button" data-open-mixed-gallery data-start-index="0">
+                        <img src="https://picsum.photos/id/31/480/320" alt="从第 1 张开始打开" />
+                        <div class="card-caption">从第 1 张开始打开 20 张数据</div>
                     </button>
-                    <a href="./demo-ajax.html" data-fantasybox data-type="ajax" data-caption="Ajax 内容示例">
-                        打开 Ajax 内容
+                    <button type="button" data-open-mixed-gallery data-start-index="5">
+                        <img src="https://picsum.photos/id/36/480/320" alt="从第 6 张开始打开" />
+                        <div class="card-caption">从第 6 张开始打开 20 张数据</div>
+                    </button>
+                    <button type="button" data-open-mixed-gallery data-start-index="10">
+                        <img src="https://picsum.photos/id/41/480/320" alt="从第 11 张开始打开" />
+                        <div class="card-caption">从第 11 张开始打开 20 张数据</div>
+                    </button>
+                    <button type="button" data-open-mixed-gallery data-start-index="15">
+                        <img src="https://picsum.photos/id/46/480/320" alt="从第 16 张开始打开" />
+                        <div class="card-caption">从第 16 张开始打开 20 张数据</div>
+                    </button>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>视频内容</h2>
+                <div class="action-row">
+                    <a
+                        href="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
+                        data-fantasybox
+                        data-type="video"
+                        data-poster="https://picsum.photos/id/1025/800/450"
+                        data-caption="HTML5 视频示例（MP4）"
+                    >
+                        打开 HTML5 MP4 视频
+                    </a>
+                    <a
+                        href="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.webm"
+                        data-fantasybox
+                        data-type="video"
+                        data-poster="https://picsum.photos/id/1039/800/450"
+                        data-caption="HTML5 视频示例（WebM）"
+                    >
+                        打开 HTML5 WebM 视频
                     </a>
                     <a
                         href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
@@ -205,6 +261,25 @@
                         data-caption="YouTube 视频示例"
                     >
                         打开 YouTube
+                    </a>
+                    <a
+                        href="https://vimeo.com/76979871"
+                        data-fantasybox
+                        data-caption="Vimeo 视频示例"
+                    >
+                        打开 Vimeo
+                    </a>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>其它内容类型</h2>
+                <div class="action-row">
+                    <button type="button" data-fantasybox data-src="#inline-card" data-type="inline" data-caption="内联内容示例">
+                        打开内联内容
+                    </button>
+                    <a href="./demo-ajax.html" data-fantasybox data-type="ajax" data-caption="Ajax 内容示例">
+                        打开 Ajax 内容
                     </a>
                     <a
                         href="https://www.example.com"
@@ -237,13 +312,9 @@
         <script>
             const eventLog = document.getElementById("event-log");
             const mobileNavlessDemoButton = document.getElementById("open-mobile-navless-demo");
+            const mixedGalleryButtons = document.querySelectorAll("[data-open-mixed-gallery]");
 
-            function appendLog(line) {
-                const time = new Date().toLocaleTimeString();
-                eventLog.textContent = `${eventLog.textContent}\n[${time}] ${line}`;
-            }
-
-            FantasyBox.bind("[data-fantasybox]", {
+            const sharedOptions = {
                 loop: true,
                 showCaption: true,
                 showCounter: true,
@@ -277,6 +348,37 @@
                         appendLog(`error -> ${payload.message}`);
                     }
                 }
+            };
+
+            const mixedGalleryItems = Array.from({ length: 20 }, (_, index) => {
+                const imageId = 31 + index;
+
+                return {
+                    src: `https://picsum.photos/id/${imageId}/1600/1100`,
+                    thumb: `https://picsum.photos/id/${imageId}/320/220`,
+                    caption: `JS 数据相册第 ${index + 1} 张`,
+                    alt: `JS 数据相册第 ${index + 1} 张`,
+                    downloadSrc: `https://picsum.photos/id/${imageId}/1600/1100`
+                };
+            });
+
+            function appendLog(line) {
+                const time = new Date().toLocaleTimeString();
+                eventLog.textContent = `${eventLog.textContent}\n[${time}] ${line}`;
+            }
+
+            FantasyBox.bind("[data-fantasybox]", sharedOptions);
+
+            mixedGalleryButtons.forEach(button => {
+                button.addEventListener("click", () => {
+                    const startIndex = Number(button.dataset.startIndex || 0);
+
+                    FantasyBox.open(mixedGalleryItems, {
+                        ...sharedOptions,
+                        startIndex,
+                        hash: "mixed-js-gallery"
+                    });
+                });
             });
 
             mobileNavlessDemoButton.addEventListener("click", () => {
@@ -302,11 +404,12 @@
                         }
                     ],
                     {
-                        showCaption: true,
-                        showCounter: true,
-                        showThumbnails: true,
+                        ...sharedOptions,
+                        hash: "mobile-navless-demo",
                         on: {
+                            ...sharedOptions.on,
                             open(payload) {
+                                sharedOptions.on.open(payload);
                                 payload.instance.dom.root.classList.add("is-mobile-navless");
                             }
                         }
