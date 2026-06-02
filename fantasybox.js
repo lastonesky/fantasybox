@@ -175,7 +175,7 @@
       return "inline";
     }
 
-    return "iframe";
+    return "image";
   };
 
   const toEmbedUrl = src => parseYouTube(src) || parseVimeo(src) || src;
@@ -762,9 +762,15 @@
         if (this.dragMode === "swipe") {
           if (Math.abs(this.swipeDeltaX) > 60) {
             if (this.swipeDeltaX > 0) {
-              this.prev({ swipeOffset: this.swipeDeltaX });
+              this.prev({
+                swipeOffset: this.swipeDeltaX,
+                preparedSlide: this.getSwipePreviewSlide("prev"),
+              });
             } else {
-              this.next({ swipeOffset: this.swipeDeltaX });
+              this.next({
+                swipeOffset: this.swipeDeltaX,
+                preparedSlide: this.getSwipePreviewSlide("next"),
+              });
             }
           } else {
             this.resetSwipePosition();
@@ -909,7 +915,7 @@
       this.build();
       this.bindEvents();
       this.isOpen = true;
-      this.hashState.previous = FantasyBox.readHash();
+      this.hashState.previous = this.getRestoredHash();
 
       document.body.appendChild(this.dom.root);
       FantasyBox.instances.push(this);
@@ -959,6 +965,17 @@
       }
     }
 
+    getRestoredHash() {
+      const currentHash = FantasyBox.readHash();
+      const currentState = parseHashState(currentHash);
+
+      if (currentState && currentState.group === this.hashState.group) {
+        return "";
+      }
+
+      return currentHash;
+    }
+
     destroy() {
       this.emit("destroy", this.createPayload());
       this.close(true);
@@ -998,6 +1015,10 @@
       return createElement("div", "fantasybox__slide");
     }
 
+    canSwipe() {
+      return this.items.length > 1;
+    }
+
     getWrappedIndex(index) {
       if (!this.items.length) {
         return -1;
@@ -1010,26 +1031,46 @@
       return index < 0 || index >= this.items.length ? -1 : index;
     }
 
+    getNeighborIndex(index) {
+      if (!this.canSwipe()) {
+        return -1;
+      }
+
+      const wrappedIndex = this.getWrappedIndex(index);
+      return wrappedIndex === this.index ? -1 : wrappedIndex;
+    }
+
     getSwipePreviewSlide(side) {
       return this.dom.frame ? this.dom.frame.querySelector(`.fantasybox__slide--preview[data-side="${side}"]`) || null : null;
     }
 
     createPreviewSlide(item, side) {
       const slide = createElement("div", "fantasybox__slide fantasybox__slide--preview", { "data-side": side });
-      const previewSrc = item.thumb || item.poster || (item.type === "image" ? item.src : "");
 
-      if (previewSrc) {
+      if (item.type === "image") {
         const previewImage = createElement("img", "fantasybox__media fantasybox__media--image fantasybox__media--preview", {
           alt: item.alt || item.caption || "",
           draggable: "false",
           loading: "eager",
         });
-        previewImage.src = previewSrc;
+        previewImage.src = item.src;
         slide.appendChild(previewImage);
       } else {
-        const fallback = createElement("div", "fantasybox__media fantasybox__media--html fantasybox__media--preview");
-        fallback.innerHTML = `<div class="fantasybox__preview-label">${sanitizeHtml(item.caption || `Item ${item.index + 1}`)}</div>`;
-        slide.appendChild(fallback);
+        const previewSrc = item.poster || item.thumb || "";
+
+        if (previewSrc) {
+          const previewImage = createElement("img", "fantasybox__media fantasybox__media--image fantasybox__media--preview", {
+            alt: item.alt || item.caption || "",
+            draggable: "false",
+            loading: "eager",
+          });
+          previewImage.src = previewSrc;
+          slide.appendChild(previewImage);
+        } else {
+          const fallback = createElement("div", "fantasybox__media fantasybox__media--html fantasybox__media--preview");
+          fallback.innerHTML = `<div class="fantasybox__preview-label">${sanitizeHtml(item.caption || `Item ${item.index + 1}`)}</div>`;
+          slide.appendChild(fallback);
+        }
       }
 
       this.dom.frame.appendChild(slide);
@@ -1037,8 +1078,8 @@
     }
 
     ensureSwipeNeighbors() {
-      const previousIndex = this.getWrappedIndex(this.index - 1);
-      const nextIndex = this.getWrappedIndex(this.index + 1);
+      const previousIndex = this.getNeighborIndex(this.index - 1);
+      const nextIndex = this.getNeighborIndex(this.index + 1);
 
       if (previousIndex !== -1 && !this.getSwipePreviewSlide("prev")) {
         this.createPreviewSlide(this.items[previousIndex], "prev");
@@ -1081,7 +1122,7 @@
 
     updateSwipePreview(deltaX) {
       const activeSlide = this.getActiveSlide();
-      if (!activeSlide) {
+      if (!activeSlide || !this.canSwipe()) {
         return;
       }
 
@@ -1141,25 +1182,52 @@
       const frameWidth = this.dom.viewport.clientWidth || this.dom.frame.clientWidth || 1;
       const enteringOffset = frameWidth * direction + swipeOffset;
       const leavingOffset = swipeOffset - frameWidth * direction;
+      const previewSide = direction < 0 ? "prev" : "next";
+      const reuseSwipePreview =
+        nextSlide &&
+        nextSlide.parentNode === this.dom.frame &&
+        nextSlide.classList.contains("fantasybox__slide--preview") &&
+        nextSlide.getAttribute("data-side") === previewSide;
 
-      this.clearSwipeNeighbors(true);
+      if (reuseSwipePreview) {
+        const oppositePreview = this.getSwipePreviewSlide(previewSide === "prev" ? "next" : "prev");
+        if (oppositePreview) {
+          this.unloadMedia(oppositePreview);
+          oppositePreview.remove();
+        }
+
+        nextSlide.classList.remove("fantasybox__slide--preview");
+        nextSlide.removeAttribute("data-side");
+        const previewMedia = nextSlide.querySelector(".fantasybox__media--preview");
+        if (previewMedia) {
+          previewMedia.classList.remove("fantasybox__media--preview");
+        }
+      } else {
+        this.clearSwipeNeighbors(true);
+      }
+
       currentSlide.classList.remove("is-current");
       currentSlide.classList.add("is-leaving");
       nextSlide.classList.add("is-current", "is-entering");
-      this.dom.frame.appendChild(nextSlide);
 
-      this.setSlideState(currentSlide, {
-        offset: swipeOffset,
-        scale: 0.97,
-        opacity: 0.78,
-        immediate: true,
-      });
-      this.setSlideState(nextSlide, {
-        offset: enteringOffset,
-        scale: 0.97,
-        opacity: 0.65,
-        immediate: true,
-      });
+      if (nextSlide.parentNode !== this.dom.frame) {
+        this.dom.frame.appendChild(nextSlide);
+      }
+
+      if (!reuseSwipePreview) {
+        this.setSlideState(currentSlide, {
+          offset: swipeOffset,
+          scale: 0.97,
+          opacity: 0.78,
+          immediate: true,
+        });
+        this.setSlideState(nextSlide, {
+          offset: enteringOffset,
+          scale: 0.97,
+          opacity: 0.65,
+          immediate: true,
+        });
+      }
 
       requestAnimationFrame(() => {
         this.setSlideState(currentSlide, {
@@ -1199,6 +1267,9 @@
       }
 
       if (nextIndex === this.index) {
+        if (transitionOptions.swipeOffset || transitionOptions.preparedSlide) {
+          this.resetSwipePosition();
+        }
         return;
       }
 
@@ -1263,7 +1334,7 @@
       this.updateZoomControls(item);
       this.updateToolbarState();
 
-      const slide = this.createSlide();
+      const slide = transitionOptions.preparedSlide || this.createSlide();
 
       if (!transitionOptions.animate) {
         this.clearFrame();
@@ -1274,20 +1345,41 @@
       }
 
       if (item.type === "image") {
-        const content = createElement("img", "fantasybox__media fantasybox__media--image", {
-          alt: item.alt,
-          draggable: "false",
-        });
-        content.addEventListener("load", () => {
+        const handleImageLoad = () => {
           this.limitPan();
           this.preloadAround();
           this.finalizeLoaded(item);
-        });
-        content.addEventListener("error", () => {
+        };
+        const handleImageError = () => {
           this.renderError("Unable to load image.");
-        });
-        content.src = item.src;
-        slide.appendChild(content);
+        };
+        let content = transitionOptions.preparedSlide
+          ? slide.querySelector(".fantasybox__media--image")
+          : null;
+
+        if (!content) {
+          content = createElement("img", "fantasybox__media fantasybox__media--image", {
+            alt: item.alt,
+            draggable: "false",
+          });
+          content.src = item.src;
+          slide.appendChild(content);
+        } else {
+          content.alt = item.alt;
+          content.classList.remove("fantasybox__media--preview");
+        }
+
+        content.addEventListener("load", handleImageLoad, { once: true });
+        content.addEventListener("error", handleImageError, { once: true });
+
+        if (content.complete) {
+          if (content.naturalWidth > 0) {
+            handleImageLoad();
+          } else {
+            handleImageError();
+          }
+        }
+
         this.dom.image = content;
         return;
       }
@@ -1729,7 +1821,11 @@
       instance.dom.root.classList.toggle("is-stack-top", instance === topInstance);
     });
 
-    document.documentElement.classList.toggle("fantasybox-lock", FantasyBox.instances.length > 0);
+    const isLocked = FantasyBox.instances.length > 0;
+    document.documentElement.classList.toggle("fantasybox-lock", isLocked);
+    if (document.body) {
+      document.body.classList.toggle("fantasybox-lock", isLocked);
+    }
     if (topInstance) {
       topInstance.resetIdleTimer();
     }

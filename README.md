@@ -131,6 +131,7 @@ FantasyBox.close();
 - 视频扩展名：`mp4`、`m4v`、`mov`、`ogv`、`ogg`、`webm`
 - `YouTube / Vimeo` 链接会识别为 `embed`
 - 以 `#` 开头的链接会识别为 `inline`
+- `iframe` 不再自动推断，需要显式指定 `data-type="iframe"` 或 `type: "iframe"`
 
 ## 用例 1：视频展示
 

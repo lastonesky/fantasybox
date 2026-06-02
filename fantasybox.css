@@ -14,9 +14,9 @@
   --fb-speed: 180ms;
 }
 
-.fantasybox-lock,
-.fantasybox-lock body {
-  overflow: hidden;
+.fantasybox-lock {
+  overflow: hidden !important;
+  overscroll-behavior: none;
 }
 
 .fantasybox {
@@ -25,6 +25,7 @@
   z-index: 9999;
   display: grid;
   place-items: center;
+  overflow: hidden;
   opacity: 0;
   pointer-events: none;
   transition: opacity var(--fb-speed) ease;
@@ -48,8 +49,11 @@
 
 .fantasybox__panel {
   position: relative;
-  width: calc(100vw - 16px);
-  height: calc(100vh - 16px);
+  box-sizing: border-box;
+  width: calc(100% - 16px);
+  height: calc(100% - 16px);
+  max-width: calc(100% - 16px);
+  max-height: calc(100% - 16px);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: var(--fb-gap);
@@ -59,6 +63,7 @@
   border: 1px solid var(--fb-panel-border);
   border-radius: var(--fb-radius);
   box-shadow: var(--fb-shadow);
+  overflow: hidden;
   transform: translateY(12px) scale(0.985);
   transition: transform var(--fb-speed) ease;
 }
@@ -129,6 +134,12 @@
     opacity var(--fb-speed) ease;
 }
 
+.fantasybox__nav[hidden] {
+  display: inline-flex !important;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .fantasybox__button:hover,
 .fantasybox__nav:hover {
   background: var(--fb-button-hover);
@@ -169,6 +180,7 @@
 }
 
 .fantasybox__viewport {
+  grid-column: 2;
   position: relative;
   min-width: 0;
   min-height: 0;
@@ -205,7 +217,10 @@
   inset: 0;
   display: grid;
   place-items: center;
+  min-width: 0;
+  min-height: 0;
   padding: 0;
+  overflow: hidden;
   transform: translate3d(0, 0, 0);
   opacity: 1;
   transition:
@@ -238,6 +253,10 @@
 }
 
 .fantasybox__media--image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   transition: transform 120ms ease;
   transform-origin: center center;
   will-change: transform;
@@ -371,14 +390,20 @@
 
 @media (max-width: 900px) {
   .fantasybox__panel {
-    width: calc(100vw - 8px);
-    height: calc(100vh - 8px);
+    width: calc(100% - 8px);
+    height: calc(100% - 8px);
+    max-width: calc(100% - 8px);
+    max-height: calc(100% - 8px);
     padding: 14px;
     gap: 12px;
   }
 
   .fantasybox__stage {
     grid-template-columns: 1fr;
+  }
+
+  .fantasybox__viewport {
+    grid-column: 1;
   }
 
   .fantasybox__nav {
