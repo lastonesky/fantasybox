@@ -254,7 +254,7 @@
                 <div class="action-row">
                     <a
                         href="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
-                        data-fantasybox
+                        data-fantasybox="video-only"
                         data-type="video"
                         data-poster="https://picsum.photos/id/1025/800/450"
                         data-caption="HTML5 视频示例（MP4）"
@@ -263,7 +263,7 @@
                     </a>
                     <a
                         href="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.webm"
-                        data-fantasybox
+                        data-fantasybox="video-only"
                         data-type="video"
                         data-poster="https://picsum.photos/id/1039/800/450"
                         data-caption="HTML5 视频示例（WebM）"
@@ -272,17 +272,58 @@
                     </a>
                     <a
                         href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-                        data-fantasybox
+                        data-fantasybox="video-only"
                         data-caption="YouTube 视频示例"
                     >
                         打开 YouTube
                     </a>
                     <a
                         href="https://vimeo.com/76979871"
-                        data-fantasybox
+                        data-fantasybox="video-only"
                         data-caption="Vimeo 视频示例"
                     >
                         打开 Vimeo
+                    </a>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2>图片和视频混合展示</h2>
+                <p class="intro">这个队列中包含 3 张图片和 1 个视频，它们共享同一个 `data-fantasybox="mixed-group"` 属性。</p>
+                <div class="my-gallery">
+                    <a
+                        href="https://biati-digital.github.io/glightbox/demo/img/large/gm3.jpg"
+                        data-fantasybox="mixed-group"
+                        data-caption="混合队列 - 图片 1"
+                    >
+                        <img src="https://biati-digital.github.io/glightbox/demo/img/small/gm3.jpg" alt="图片 1" />
+                        <div class="card-caption">图片 1</div>
+                    </a>
+                    <a
+                        href="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4"
+                        data-fantasybox="mixed-group"
+                        data-type="video"
+                        data-poster="https://picsum.photos/id/1025/800/450"
+                        data-caption="混合队列 - 视频内容"
+                    >
+                        <img src="https://picsum.photos/id/1025/480/360" alt="视频封面" />
+                        <div class="card-caption">视频内容 (MP4)</div>
+                    </a>
+                    <a
+                        href="https://biati-digital.github.io/glightbox/demo/img/large/gm1.jpg"
+                        data-fantasybox="mixed-group"
+                        data-caption="混合队列 - 图片 2"
+                    >
+                        <img src="https://biati-digital.github.io/glightbox/demo/img/small/gm1.jpg" alt="图片 2" />
+                        <div class="card-caption">图片 2</div>
+                    </a>
+                    <a
+                        href="https://biati-digital.github.io/glightbox/demo/img/large/gm4.jpg"
+                        data-fantasybox="mixed-group"
+                        data-caption="混合队列 - 图片 3"
+                    >
+                        <img src="https://biati-digital.github.io/glightbox/demo/img/small/gm4.jpg" alt="图片 3" />
+                        <div class="card-caption">图片 3</div>
                     </a>
                 </div>
             </section>
