@@ -662,7 +662,7 @@
 
       this.boundHandlers.onPointerDown = event => {
         const item = this.getCurrentItem();
-        if (!item) {
+        if (!item || event.target.closest(".fantasybox__video-container")) {
           return;
         }
 
@@ -1385,18 +1385,69 @@
       }
 
       if (item.type === "video") {
+        const container = createElement("div", "fantasybox__video-container");
         const content = createElement("video", "fantasybox__media fantasybox__media--video", {
-          controls: "true",
-          playsinline: "true",
-          preload: "metadata",
+          controls: "controls",
+          playsinline: "",
+          preload: "auto",
         });
+        const playButton = createElement("button", "fantasybox__play-button", {
+          type: "button",
+          "aria-label": "Play"
+        });
+        playButton.innerHTML = '<span aria-hidden="true">&#9654;</span>';
+
+        container.append(content, playButton);
+        slide.appendChild(container);
+
+        let controlTimeout = 0;
+        const resetControls = () => {
+          container.classList.remove("is-controls-hidden");
+          window.clearTimeout(controlTimeout);
+          if (!content.paused) {
+            controlTimeout = window.setTimeout(() => {
+              container.classList.add("is-controls-hidden");
+            }, 3000);
+          }
+        };
+
+        playButton.addEventListener("click", e => {
+          e.stopPropagation();
+          content.play();
+        });
+
+        content.addEventListener("play", () => {
+          container.classList.add("is-playing");
+          resetControls();
+        });
+
+        content.addEventListener("pause", () => {
+          container.classList.remove("is-playing");
+          resetControls();
+        });
+
+        content.addEventListener("mousemove", resetControls);
+        content.addEventListener("click", () => {
+          if (content.paused) {
+            content.play();
+          } else {
+            content.pause();
+          }
+        });
+
         if (item.poster) {
           content.setAttribute("poster", item.poster);
         }
-        content.addEventListener("loadeddata", () => this.finalizeLoaded(item));
-        content.addEventListener("error", () => this.renderError("Unable to load video."));
+
+        content.addEventListener("loadeddata", () => {
+          this.finalizeLoaded(item);
+        });
+
+        content.addEventListener("error", () => {
+          this.renderError("Unable to load video.");
+        });
+
         content.src = item.src;
-        slide.appendChild(content);
         this.dom.image = null;
         return;
       }

@@ -277,6 +277,63 @@
   border: 0;
   border-radius: calc(var(--fb-radius) - 8px);
   background: rgba(0, 0, 0, 0.28);
+  object-fit: contain;
+}
+
+.fantasybox__video-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.fantasybox__play-button {
+  position: absolute;
+  z-index: 10;
+  width: 72px;
+  height: 72px;
+  border: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--fb-accent);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: opacity 0.3s, transform 0.3s, visibility 0.3s;
+  pointer-events: auto;
+}
+
+.fantasybox__play-button span {
+  font-size: 28px;
+  margin-left: 4px;
+}
+
+.fantasybox__play-button:hover {
+  transform: scale(1.1);
+  background: #fff;
+  color: var(--fb-accent);
+}
+
+.fantasybox__video-container.is-playing .fantasybox__play-button {
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(0.8);
+}
+
+.fantasybox__video-container.is-controls-hidden video::-webkit-media-controls {
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+/* Fallback for browsers that don't support hiding via shadow DOM */
+.fantasybox__video-container.is-controls-hidden video {
+  cursor: none;
 }
 
 .fantasybox__media--html {
