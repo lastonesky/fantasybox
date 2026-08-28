@@ -366,18 +366,20 @@
 
         <script src="./fantasybox.js"></script>
         <script>
+            // 获取 DOM 元素引用
             const eventLog = document.getElementById("event-log");
             const mobileNavlessDemoButton = document.getElementById("open-mobile-navless-demo");
             const mixedGalleryButtons = document.querySelectorAll("[data-open-mixed-gallery]");
 
+            // 所有相册共享的基础配置
             const sharedOptions = {
-                loop: true,
-                showCaption: true,
-                showCounter: true,
-                showThumbnails: true,
-                wheelZoom: true,
-                dragToPan: true,
-                hash: true,
+                loop: true,                    // 循环播放
+                showCaption: true,             // 显示标题
+                showCounter: true,             // 显示计数器
+                showThumbnails: true,          // 显示缩略图
+                wheelZoom: true,               // 鼠标滚轮缩放
+                dragToPan: true,               // 拖拽平移
+                hash: true,                    // URL hash 同步
                 on: {
                     init(payload) {
                         appendLog(`init -> ${payload.instance.id}`);
@@ -406,29 +408,34 @@
                 }
             };
 
+            // 生成 20 张图片的数据数组（使用 picsum.photos 随机图片服务）
             const mixedGalleryItems = Array.from({ length: 20 }, (_, index) => {
                 const imageId = 31 + index;
 
                 return {
-                    src: `https://picsum.photos/id/${imageId}/1600/1100`,
-                    thumb: `https://picsum.photos/id/${imageId}/320/220`,
+                    src: `https://picsum.photos/id/${imageId}/1600/1100`,       // 大图
+                    thumb: `https://picsum.photos/id/${imageId}/320/220`,      // 缩略图
                     caption: `JS 数据相册第 ${index + 1} 张`,
                     alt: `JS 数据相册第 ${index + 1} 张`,
-                    downloadSrc: `https://picsum.photos/id/${imageId}/1600/1100`
+                    downloadSrc: `https://picsum.photos/id/${imageId}/1600/1100`  // 下载链接
                 };
             });
 
+            // 向事件日志面板追加一行带时间戳的日志
             function appendLog(line) {
                 const time = new Date().toLocaleTimeString();
                 eventLog.textContent = `${eventLog.textContent}\n[${time}] ${line}`;
             }
 
+            // 绑定所有带 data-fantasybox 属性的 DOM 元素，点击自动打开灯箱
             FantasyBox.bind("[data-fantasybox]", sharedOptions);
 
+            // 为每个"打开 JS 数据相册"按钮绑定点击事件
             mixedGalleryButtons.forEach(button => {
                 button.addEventListener("click", () => {
                     const startIndex = Number(button.dataset.startIndex || 0);
 
+                    // 通过 FantasyBox.open() 动态打开相册
                     FantasyBox.open(mixedGalleryItems, {
                         ...sharedOptions,
                         startIndex,
@@ -437,6 +444,7 @@
                 });
             });
 
+            // 移动端隐藏导航按钮的演示
             mobileNavlessDemoButton.addEventListener("click", () => {
                 const instance = FantasyBox.open(
                     [
@@ -464,6 +472,7 @@
                         hash: "mobile-navless-demo",
                         on: {
                             ...sharedOptions.on,
+                            // open 时为根元素添加自定义样式类，隐藏左右导航箭头
                             open(payload) {
                                 sharedOptions.on.open(payload);
                                 payload.instance.dom.root.classList.add("is-mobile-navless");
