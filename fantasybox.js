@@ -316,8 +316,12 @@
       };
       this.lastFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       this.imageCache = [];
+      this.cachedImageSources = new Set();
+      this.slideRemovalTimers = new Map();
       this.boundHandlers = {};
       this.dom = {};
+      this.destroyed = false;
+      this.isDestroying = false;
 
       if (!this.items.length) {
         throw new Error("FantasyBox requires at least one media item.");
@@ -363,6 +367,10 @@
     }
 
     emit(eventName, payload = {}) {
+      if (this.destroyed) {
+        return this;
+      }
+
       const handlers = this.eventListeners.get(eventName) || [];
 
       handlers.slice().forEach(handler => {
@@ -935,11 +943,25 @@
       }
 
       this.emit("close", this.createPayload());
+      this.teardown(context);
+
+      if (!silent && this.lastFocused && typeof this.lastFocused.focus === "function") {
+        this.lastFocused.focus();
+      }
+    }
+
+    teardown(context = {}) {
+      if (!this.isOpen) {
+        return;
+      }
+
       this.isOpen = false;
       this.stopSlideshow();
       this.stopIdleTimer();
       this.unloadMedia();
       this.unbindEvents();
+      this.clearImageCache();
+      this.clearFrame();
       this.dom.root.classList.remove("is-open", "is-idle");
 
       if (getFullscreenElement() === this.dom.root || getFullscreenElement() === this.dom.panel) {
@@ -959,10 +981,6 @@
       if (!context.skipHashRestore) {
         this.restoreHash();
       }
-
-      if (!silent && this.lastFocused && typeof this.lastFocused.focus === "function") {
-        this.lastFocused.focus();
-      }
     }
 
     getRestoredHash() {
@@ -977,8 +995,14 @@
     }
 
     destroy() {
+      if (this.destroyed || this.isDestroying) {
+        return;
+      }
+
+      this.isDestroying = true;
       this.emit("destroy", this.createPayload());
       this.close(true);
+      this.destroyed = true;
       this.eventListeners.clear();
       this.dom = {};
     }
@@ -1094,10 +1118,6 @@
       const previousSlide = this.getSwipePreviewSlide("prev");
       const nextSlide = this.getSwipePreviewSlide("next");
       const frameWidth = this.dom.viewport.clientWidth || this.dom.frame.clientWidth || 1;
-      const remove = slide => {
-        this.unloadMedia(slide);
-        slide.remove();
-      };
 
       [previousSlide, nextSlide].forEach((slide, index) => {
         if (!slide) {
@@ -1105,7 +1125,7 @@
         }
 
         if (immediate) {
-          remove(slide);
+          this.removeSlide(slide);
           return;
         }
 
@@ -1116,8 +1136,50 @@
           opacity: 0,
           immediate: false,
         });
-        window.setTimeout(() => remove(slide), SLIDE_ANIMATION_MS);
+        this.scheduleSlideRemoval(slide);
       });
+    }
+
+    cancelSlideRemoval(slide) {
+      const timer = this.slideRemovalTimers.get(slide);
+      if (!timer) {
+        return;
+      }
+
+      window.clearTimeout(timer);
+      this.slideRemovalTimers.delete(slide);
+    }
+
+    scheduleSlideRemoval(slide, delay = SLIDE_ANIMATION_MS, onRemoved) {
+      if (!slide) {
+        return;
+      }
+
+      this.cancelSlideRemoval(slide);
+      const timer = window.setTimeout(() => {
+        this.slideRemovalTimers.delete(slide);
+        this.unloadMedia(slide);
+        slide.remove();
+        if (typeof onRemoved === "function") {
+          onRemoved();
+        }
+      }, delay);
+      this.slideRemovalTimers.set(slide, timer);
+    }
+
+    clearSlideRemovalTimers() {
+      this.slideRemovalTimers.forEach(timer => window.clearTimeout(timer));
+      this.slideRemovalTimers.clear();
+    }
+
+    removeSlide(slide) {
+      if (!slide) {
+        return;
+      }
+
+      this.cancelSlideRemoval(slide);
+      this.unloadMedia(slide);
+      slide.remove();
     }
 
     updateSwipePreview(deltaX) {
@@ -1128,14 +1190,19 @@
 
       this.ensureSwipeNeighbors();
 
+      const previousSlide = this.getSwipePreviewSlide("prev");
+      const nextSlide = this.getSwipePreviewSlide("next");
+
+      // 正在淡出等待删除的预览 slide 被重新拖动时必须取消原删除定时器，否则会被定时器中途移除
+      this.cancelSlideRemoval(previousSlide);
+      this.cancelSlideRemoval(nextSlide);
+
       const frameWidth = this.dom.viewport.clientWidth || this.dom.frame.clientWidth || 1;
       const peek = Math.min(96, frameWidth * 0.16);
       const previewBaseOffset = frameWidth - peek;
       const progress = clamp(Math.abs(deltaX) / frameWidth, 0, 1);
       const currentScale = 1 - progress * 0.035;
       const currentOpacity = 1 - progress * 0.28;
-      const previousSlide = this.getSwipePreviewSlide("prev");
-      const nextSlide = this.getSwipePreviewSlide("next");
 
       this.setSlideState(activeSlide, {
         offset: deltaX,
@@ -1166,6 +1233,7 @@
     }
 
     clearFrame() {
+      this.clearSlideRemovalTimers();
       this.unloadMedia(this.dom.frame);
       this.dom.frame.innerHTML = "";
     }
@@ -1190,10 +1258,11 @@
         nextSlide.getAttribute("data-side") === previewSide;
 
       if (reuseSwipePreview) {
+        // 该 slide 即将成为当前 slide，先取消它身上可能挂着的删除定时器
+        this.cancelSlideRemoval(nextSlide);
         const oppositePreview = this.getSwipePreviewSlide(previewSide === "prev" ? "next" : "prev");
         if (oppositePreview) {
-          this.unloadMedia(oppositePreview);
-          oppositePreview.remove();
+          this.removeSlide(oppositePreview);
         }
 
         nextSlide.classList.remove("fantasybox__slide--preview");
@@ -1244,11 +1313,9 @@
         });
       });
 
-      window.setTimeout(() => {
-        this.unloadMedia(currentSlide);
-        currentSlide.remove();
+      this.scheduleSlideRemoval(currentSlide, SLIDE_ANIMATION_MS, () => {
         nextSlide.classList.remove("is-entering");
-      }, SLIDE_ANIMATION_MS);
+      });
     }
 
     goTo(nextIndex, transitionOptions = {}) {
@@ -1280,6 +1347,7 @@
         animate: true,
         direction: transitionOptions.direction || (nextIndex > previousIndex ? 1 : -1),
         swipeOffset: transitionOptions.swipeOffset || 0,
+        preparedSlide: transitionOptions.preparedSlide,
       });
       this.scheduleSlideshow();
       this.resetIdleTimer();
@@ -1305,11 +1373,27 @@
         } catch (error) {
           error;
         }
+
+        video.removeAttribute("src");
+        video.load();
       });
 
       root.querySelectorAll("iframe").forEach(frame => {
         frame.setAttribute("src", "about:blank");
       });
+
+      root.querySelectorAll("img").forEach(img => {
+        img.removeAttribute("src");
+        img.removeAttribute("srcset");
+      });
+    }
+
+    clearImageCache() {
+      this.imageCache.forEach(image => {
+        image.removeAttribute("src");
+      });
+      this.imageCache = [];
+      this.cachedImageSources.clear();
     }
 
     finalizeLoaded(item) {
@@ -1346,11 +1430,19 @@
 
       if (item.type === "image") {
         const handleImageLoad = () => {
+          if (!this.isOpen || this.getCurrentItem() !== item) {
+            return;
+          }
+
           this.limitPan();
           this.preloadAround();
           this.finalizeLoaded(item);
         };
         const handleImageError = () => {
+          if (!this.isOpen || this.getCurrentItem() !== item) {
+            return;
+          }
+
           this.renderError("Unable to load image.");
         };
         let content = transitionOptions.preparedSlide
@@ -1382,6 +1474,12 @@
 
         this.dom.image = content;
         return;
+      }
+
+      if (transitionOptions.preparedSlide) {
+        // 复用的预览 slide 可能残留上一项的缩略图/poster，非图片类型先清空
+        this.unloadMedia(slide);
+        slide.replaceChildren();
       }
 
       if (item.type === "video") {
@@ -1440,10 +1538,18 @@
         }
 
         content.addEventListener("loadeddata", () => {
+          if (!this.isOpen || this.getCurrentItem() !== item) {
+            return;
+          }
+
           this.finalizeLoaded(item);
         });
 
         content.addEventListener("error", () => {
+          if (!this.isOpen || this.getCurrentItem() !== item) {
+            return;
+          }
+
           this.renderError("Unable to load video.");
         });
 
@@ -1459,7 +1565,13 @@
           loading: "eager",
           referrerpolicy: "strict-origin-when-cross-origin",
         });
-        content.addEventListener("load", () => this.finalizeLoaded(item));
+        content.addEventListener("load", () => {
+          if (!this.isOpen || this.getCurrentItem() !== item) {
+            return;
+          }
+
+          this.finalizeLoaded(item);
+        });
         content.src = item.type === "embed" ? item.embedSrc : item.src;
         slide.appendChild(content);
         this.dom.image = null;
@@ -1519,6 +1631,10 @@
     }
 
     renderError(message) {
+      if (!this.isOpen) {
+        return;
+      }
+
       this.dom.loading.hidden = true;
       this.clearFrame();
       this.dom.frame.classList.add("is-error");
@@ -1718,12 +1834,13 @@
       for (let step = 1; step <= distance; step += 1) {
         [this.index - step, this.index + step].forEach(targetIndex => {
           const item = this.items[(targetIndex + this.items.length) % this.items.length];
-          if (!item || item.type !== "image") {
+          if (!item || item.type !== "image" || this.cachedImageSources.has(item.src)) {
             return;
           }
 
           const image = new Image();
           image.src = item.src;
+          this.cachedImageSources.add(item.src);
           this.imageCache.push(image);
         });
       }
